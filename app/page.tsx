@@ -1,2 +1,57 @@
-import Link from"next/link";import{ArrowRight,ArrowDownRight}from"lucide-react";import{StoreHeader}from"@/components/store-header";import{StoreFooter}from"@/components/store-footer";import{ProductCard}from"@/components/product-card";import{products,brands,categories,settings}from"@/lib/data";
-export default function Home(){const newest=products.slice(0,10),sought=products.filter(p=>p.sought),rare=products.filter(p=>p.rare);return <><StoreHeader/><main><section className="hero"><img src="/hero-nord.png" alt="Sneaker e peças selecionadas Nord Imports"/><div className="hero-shade"/><div className="hero-copy"><p className="eyebrow light">NOVA CURADORIA · 2026</p><h1>Peças que<br/><i>não passam</i><br/>despercebidas.</h1><p>Streetwear e sneakers importados, escolhidos um a um.</p><div className="hero-actions"><Link href="/produtos" className="button primary">EXPLORAR COLEÇÃO <ArrowRight/></Link><a href={`https://wa.me/${settings.whatsapp}`} className="button ghost">FALAR COM A NORD</a></div></div><div className="hero-count"><b>01</b><span>/ 03</span></div></section><section className="category-strip"><div className="section-heading"><p className="eyebrow">EXPLORE POR CATEGORIA</p><h2>Seu estilo,<br/>sua escolha.</h2></div><div className="category-grid">{categories.map((c,i)=><Link href={`/produtos?categoria=${c}`} key={c}><span>0{i+1}</span><h3>{c}</h3><ArrowDownRight/></Link>)}<Link href="/produtos"><span>0{categories.length+1}</span><h3>Ver tudo</h3><ArrowDownRight/></Link></div></section><section className="products-section"><div className="section-title-row"><div><p className="eyebrow">RECÉM-CHEGADOS</p><h2>Novidades</h2></div><Link href="/produtos">VER TODAS <ArrowRight/></Link></div><div className="products-grid">{newest.slice(0,6).map((p,i)=><ProductCard product={p} index={i} key={p.id}/>)}</div></section><section className="popular"><div className="popular-intro"><p className="eyebrow light">OS FAVORITOS</p><h2>Mais<br/><i>procurados.</i></h2><p>Os pares e peças que todo mundo quer — e poucos encontram.</p></div><div className="popular-grid">{sought.map((p,i)=><ProductCard product={p} index={i} key={p.id}/>)}</div></section><section className="rare"><div className="section-title-row"><div><p className="eyebrow">EDIÇÕES DIFÍCEIS DE ENCONTRAR</p><h2>Achados raros</h2></div><Link href="/produtos">DESCOBRIR <ArrowRight/></Link></div><div className="rare-list">{rare.map((p,i)=><Link href={`/produto/${p.slug}`} key={p.id}><span>0{i+1}</span><b>{p.name}</b><small>{p.brand}</small><ArrowRight/></Link>)}</div></section><section className="brand-marquee"><p>{brands.join("  ·  ")} · {brands.join("  ·  ")}</p></section><section id="sobre" className="about"><div><p className="eyebrow">NOSSA HISTÓRIA</p><h2>Mais que roupa.<br/><i>Referência.</i></h2></div><div><p>A Nord nasceu da busca por peças que não chegam fácil. Selecionamos sneakers e streetwear com identidade, procedência e história — para quem entende que vestir também é escolher o que representar.</p><a href={`https://wa.me/${settings.whatsapp}`} className="text-link">CONHEÇA A NORD <ArrowRight/></a></div></section></main><StoreFooter/></>}
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
+import { StoreHeader } from "@/components/store-header";
+import { StoreFooter } from "@/components/store-footer";
+import { ProductCard } from "@/components/product-card";
+import { products, brands, categories, settings } from "@/lib/data";
+
+export default function Home() {
+  const newest = products.slice(0, 10);
+  const sought = products.filter((p) => p.sought);
+  const rare = products.filter((p) => p.rare);
+  return <><div id="top" /><StoreHeader /><main>
+    <section className="hero">
+      <Image src="/hero-nord.png" alt="Sneaker e peças selecionadas Nord Imports" fill priority sizes="100vw" />
+      <div className="hero-shade" />
+      <div className="hero-index"><span>01</span><i /><span>DROP 09.26</span></div>
+      <div className="hero-copy">
+        <p className="eyebrow light">CURADORIA NORD · SÃO PAULO</p>
+        <h1>DO NORTE<br /><span>PARA O</span><br />SEU MUNDO.</h1>
+        <div className="hero-bottom"><p>Streetwear e sneakers importados,<br />escolhidos por quem vive a cultura.</p><Link href="/produtos" className="round-cta" aria-label="Explorar coleção"><ArrowUpRight /></Link></div>
+      </div>
+      <Image className="hero-mountain" src="/morro-nord.png" alt="" width={593} height={180} aria-hidden="true" />
+      <a href="#categorias" className="scroll-cue">DESÇA PARA EXPLORAR <ArrowDown /></a>
+    </section>
+
+    <section id="categorias" className="category-strip">
+      <div className="section-kicker"><span>01</span><p>CATEGORIAS</p></div>
+      <div className="category-intro"><p>ESCOLHA SEU TERRENO</p><h2>Onde seu estilo<br /><i>ganha altitude.</i></h2></div>
+      <div className="category-grid">{categories.map((c, i) => <Link href={`/produtos?categoria=${encodeURIComponent(c)}`} key={c}><span>0{i + 1}</span><h3>{c}</h3><small>{products.filter((p) => p.category === c).length} PEÇAS</small><ArrowUpRight /></Link>)}<Link href="/produtos"><span>0{categories.length + 1}</span><h3>Ver tudo</h3><small>CATÁLOGO COMPLETO</small><ArrowUpRight /></Link></div>
+    </section>
+
+    <section className="products-section">
+      <div className="section-kicker"><span>02</span><p>NOVOS NO NORTE</p></div>
+      <div className="section-title-row"><div><h2>Últimos<br /><i>drops.</i></h2><p>Peças que acabaram de atravessar a fronteira.</p></div><Link href="/produtos">VER TODAS <ArrowRight /></Link></div>
+      <div className="products-grid">{newest.slice(0, 6).map((p, i) => <ProductCard product={p} index={i} key={p.id} featured={i === 0} />)}</div>
+    </section>
+
+    <section className="popular">
+      <div className="popular-intro"><div className="section-kicker light"><span>03</span><p>EM ALTA</p></div><h2>OS MAIS<br /><i>DESEJADOS.</i></h2><p>A seleção que concentra olhares, conversas e listas de desejo.</p><a href={`https://wa.me/${settings.whatsapp}`} target="_blank" rel="noreferrer" className="outline-cta">CONSULTAR DISPONIBILIDADE <ArrowUpRight /></a></div>
+      <div className="popular-grid">{sought.map((p, i) => <ProductCard product={p} index={i} key={p.id} />)}</div>
+    </section>
+
+    <section className="rare">
+      <div className="section-kicker"><span>04</span><p>FORA DO MAPA</p></div>
+      <div className="section-title-row"><div><h2>Achados<br /><i>raros.</i></h2><p>O incomum, encontrado.</p></div></div>
+      <div className="rare-list">{rare.map((p, i) => <Link href={`/produto/${p.slug}`} key={p.id}><span>0{i + 1}</span><b>{p.name}</b><small>{p.brand} · {p.subcategory}</small><ArrowRight /></Link>)}</div>
+    </section>
+
+    <section className="brand-marquee" aria-label="Marcas disponíveis"><p>{brands.join("  ✦  ")} ✦ {brands.join("  ✦  ")}</p></section>
+
+    <section id="sobre" className="about">
+      <div className="about-blue"><Image src="/morro-nord.png" alt="Símbolo de montanha da Nord Imports" width={593} height={180} /><p>N 23°32&apos;<br />W 46°38&apos;</p></div>
+      <div className="about-copy"><div className="section-kicker"><span>05</span><p>MANIFESTO</p></div><h2>NÃO SEGUIMOS<br />O FLUXO.<br /><i>BUSCAMOS O ALTO.</i></h2><p>A Nord nasceu da busca por peças que não chegam fácil. Selecionamos sneakers e streetwear com identidade, procedência e história — para quem entende que vestir também é escolher o que representar.</p><Link href="/produtos" className="outline-cta dark">CONHEÇA A CURADORIA <ArrowUpRight /></Link></div>
+    </section>
+  </main><StoreFooter /></>;
+}

@@ -1,3 +1,53 @@
 "use client";
-import Link from "next/link"; import {Menu,Search,X,ArrowUpRight} from "lucide-react"; import {useEffect,useState} from "react"; import {brands,categories,products,settings} from "@/lib/data";
-export function StoreHeader(){const[search,setSearch]=useState(false),[menu,setMenu]=useState(false),[q,setQ]=useState("");const found=q.trim().length>1?products.filter(p=>[p.name,p.brand,p.category,p.description].join(" ").toLowerCase().includes(q.toLowerCase())).slice(0,12):[];useEffect(()=>{document.body.style.overflow=search?"hidden":"";return()=>{document.body.style.overflow=""}},[search]);return <><div className="announcement">IMPORTADOS SELECIONADOS • ATENDIMENTO PERSONALIZADO • ENVIO PARA TODO O BRASIL</div><header className="site-header"><div className="nav-wrap"><button className="icon-button mobile-only" aria-label="Abrir menu" onClick={()=>setMenu(!menu)}><Menu/></button><Link href="/" className="wordmark"><span>N</span>NORD <b>IMPORTS</b></Link><nav className={menu?"main-nav open":"main-nav"}><Link href="/produtos">Novidades</Link><div className="nav-drop"><button>Marcas</button><div>{brands.map(b=><Link key={b} href={`/marca/${encodeURIComponent(b.toLowerCase().replaceAll(" ","-"))}`}>{b}</Link>)}</div></div><div className="nav-drop"><button>Categorias</button><div>{categories.map(c=><Link key={c} href={`/produtos?categoria=${encodeURIComponent(c)}`}>{c}</Link>)}</div></div><Link href="/marcas">Todas as marcas</Link><Link href="/#sobre">Sobre</Link></nav><div className="nav-actions"><button className="icon-button" aria-label="Buscar" onClick={()=>setSearch(true)}><Search/></button><a className="wa-small" target="_blank" href={`https://wa.me/${settings.whatsapp}`}>WhatsApp <ArrowUpRight size={15}/></a></div></div></header>{search&&<div className="search-overlay" role="dialog" aria-modal="true"><div className="search-panel"><button className="search-close" onClick={()=>setSearch(false)} aria-label="Fechar"><X/></button><p className="eyebrow">BUSCA RÁPIDA</p><div className="search-line"><Search/><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="O que você procura?"/></div><div className="search-results">{q.length<2?<p>Digite pelo menos 2 caracteres.</p>:found.length?found.map(p=><Link onClick={()=>setSearch(false)} key={p.id} href={`/produto/${p.slug}`}><img src={p.image} alt=""/><span><b>{p.name}</b><small>{p.brand} · {p.category}</small></span><ArrowUpRight/></Link>):<p>Nenhuma peça encontrada.</p>}</div></div></div>}</>}
+
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowUpRight, Menu, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
+import { brands, categories, products, settings } from "@/lib/data";
+
+export function StoreHeader() {
+  const [search, setSearch] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [q, setQ] = useState("");
+  const found = q.trim().length > 1
+    ? products.filter((p) => [p.name, p.brand, p.category, p.description].join(" ").toLowerCase().includes(q.toLowerCase())).slice(0, 12)
+    : [];
+
+  useEffect(() => {
+    document.body.style.overflow = search || menu ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [search, menu]);
+
+  return <>
+    <div className="announcement"><span>NORD IMPORTS®</span><p>Curadoria independente · Envios para todo o Brasil</p><span>EST. 2026</span></div>
+    <header className="site-header">
+      <div className="nav-wrap">
+        <button className="icon-button mobile-only" aria-label="Abrir menu" onClick={() => setMenu(true)}><Menu /></button>
+        <Link href="/" aria-label="Nord Imports — início"><BrandLogo className="header-logo" /></Link>
+        <nav className={menu ? "main-nav open" : "main-nav"} aria-label="Navegação principal">
+          <button className="menu-close mobile-only" onClick={() => setMenu(false)} aria-label="Fechar menu"><X /></button>
+          <Link href="/produtos">Novidades</Link>
+          <div className="nav-drop"><button>Marcas</button><div>{brands.map((b) => <Link key={b} href={`/marca/${encodeURIComponent(b.toLowerCase().replaceAll(" ", "-"))}`}>{b}</Link>)}</div></div>
+          <div className="nav-drop"><button>Categorias</button><div>{categories.map((c) => <Link key={c} href={`/produtos?categoria=${encodeURIComponent(c)}`}>{c}</Link>)}</div></div>
+          <Link href="/marcas">Marcas A–Z</Link><Link href="/#sobre">Manifesto</Link>
+        </nav>
+        <div className="nav-actions">
+          <button className="icon-button search-trigger" aria-label="Buscar produtos" onClick={() => setSearch(true)}><Search /><span>Buscar</span></button>
+          <a className="wa-small" target="_blank" rel="noreferrer" href={`https://wa.me/${settings.whatsapp}`}>Atendimento <ArrowUpRight size={16} /></a>
+        </div>
+      </div>
+    </header>
+    {search && <div className="search-overlay" role="dialog" aria-modal="true" aria-label="Buscar produtos">
+      <div className="search-panel">
+        <div className="search-top"><BrandLogo className="search-logo" /><button className="search-close" onClick={() => setSearch(false)} aria-label="Fechar busca"><X /></button></div>
+        <p className="eyebrow">ENCONTRE SUA PRÓXIMA PEÇA</p>
+        <div className="search-line"><Search aria-hidden="true" /><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Modelo, marca ou categoria" aria-label="Termo de busca" /></div>
+        <div className="search-results" aria-live="polite">
+          {q.length < 2 ? <p>Digite pelo menos 2 caracteres para começar.</p> : found.length ? found.map((p) => <Link onClick={() => setSearch(false)} key={p.id} href={`/produto/${p.slug}`}><Image src={p.image} alt="" width={92} height={76} /><span><b>{p.name}</b><small>{p.brand} · {p.category}</small></span><ArrowUpRight /></Link>) : <div className="search-empty"><b>Nenhuma peça por aqui.</b><p>Tente buscar por Nike, Jordan, tênis ou moletom.</p></div>}
+        </div>
+      </div>
+    </div>}
+  </>;
+}
