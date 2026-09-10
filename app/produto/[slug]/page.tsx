@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, PackageCheck, ShieldCheck } from "lucide-react";
 import { InterestButton } from "@/components/interest-button";
+import { ProductGallery } from "@/components/product-gallery";
 import { ProductCard } from "@/components/product-card";
 import { ShareButton } from "@/components/share-button";
 import { StoreFooter } from "@/components/store-footer";
@@ -28,7 +28,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   return <><StoreHeader /><main id="conteudo" tabIndex={-1} className="detail-page">
     <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/">Início</Link><span>/</span><Link href="/produtos">Produtos</Link><span>/</span><span aria-current="page">{p.name}</span></nav>
     <div className="detail-grid">
-      <div className="gallery">{p.images.map((im, i) => <Image src={im} alt={`${p.name} — foto ${i + 1}`} width={1200} height={1500} sizes="(max-width: 900px) 100vw, 60vw" priority={i === 0} unoptimized={im.startsWith("http")} key={i} />)}</div>
+      <ProductGallery images={p.images} name={p.name} />
       <aside className="detail-info">
         <p className="detail-brand">{p.brand.toUpperCase()}</p><h1 className="detail-title">{p.name}</h1>
         <div className="availability"><span><i /> Disponível sob consulta</span><small>Produto importado</small></div>
