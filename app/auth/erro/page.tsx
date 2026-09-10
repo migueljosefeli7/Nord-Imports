@@ -1,0 +1,1 @@
+import Link from"next/link";export default function ErrorPage(){return <main className="state-page"><p className="eyebrow">ALGO DEU ERRADO</p><h1>Não conseguimos autenticar.</h1><p>Tente novamente. Se o problema continuar, revise as configurações do Supabase.</p><Link className="button primary" href="/login">TENTAR NOVAMENTE</Link></main>}
