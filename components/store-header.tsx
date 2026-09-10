@@ -3,27 +3,45 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, Menu, Search, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { brands, categories, products, settings } from "@/lib/data";
+import { brands, categories, settings } from "@/lib/data";
+import type { Product } from "@/lib/data";
 
-function NavLinks({ closeMobile = false }: { closeMobile?: boolean }) {
-  const MaybeClose = ({ children }: { children: ReactNode }) => closeMobile ? <SheetClose asChild>{children}</SheetClose> : <>{children}</>;
+function MaybeClose({ children, enabled }: { children: ReactNode; enabled: boolean }) {
+  return enabled ? <SheetClose asChild>{children}</SheetClose> : <>{children}</>;
+}
+
+function NavLinks({ brandList, categoryList, closeMobile = false }: { brandList: string[]; categoryList: string[]; closeMobile?: boolean }) {
   return <>
-    <MaybeClose><Link href="/produtos">Novidades</Link></MaybeClose>
-    <div className="nav-drop"><button aria-haspopup="true">Marcas</button><div>{brands.map((b) => <MaybeClose key={b}><Link href={`/marca/${encodeURIComponent(b.toLowerCase().replaceAll(" ", "-"))}`}>{b}</Link></MaybeClose>)}</div></div>
-    <div className="nav-drop"><button aria-haspopup="true">Categorias</button><div>{categories.map((c) => <MaybeClose key={c}><Link href={`/produtos?categoria=${encodeURIComponent(c)}`}>{c}</Link></MaybeClose>)}</div></div>
-    <MaybeClose><Link href="/marcas">Marcas A–Z</Link></MaybeClose>
-    <MaybeClose><Link href="/#sobre">Manifesto</Link></MaybeClose>
+    <MaybeClose enabled={closeMobile}><Link href="/produtos">Novidades</Link></MaybeClose>
+    <div className="nav-drop"><button aria-haspopup="true">Marcas</button><div>{brandList.map((b) => <MaybeClose enabled={closeMobile} key={b}><Link href={`/marca/${encodeURIComponent(b.toLowerCase().replaceAll(" ", "-"))}`}>{b}</Link></MaybeClose>)}</div></div>
+    <div className="nav-drop"><button aria-haspopup="true">Categorias</button><div>{categoryList.map((c) => <MaybeClose enabled={closeMobile} key={c}><Link href={`/produtos?categoria=${encodeURIComponent(c)}`}>{c}</Link></MaybeClose>)}</div></div>
+    <MaybeClose enabled={closeMobile}><Link href="/marcas">Marcas A–Z</Link></MaybeClose>
+    <MaybeClose enabled={closeMobile}><Link href="/#sobre">Manifesto</Link></MaybeClose>
   </>;
 }
 
 export function StoreHeader() {
   const [q, setQ] = useState("");
-  const found = q.trim().length > 1 ? products.filter((p) => [p.name, p.brand, p.category, p.description].join(" ").toLowerCase().includes(q.toLowerCase())).slice(0, 12) : [];
+  const [found, setFound] = useState<Product[]>([]);
+  const [brandList, setBrandList] = useState(brands);
+  const [categoryList, setCategoryList] = useState(categories);
+  const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
+  const visibleResults = q.trim().length > 1 ? found : [];
+
+  useEffect(() => {
+    fetch("/api/catalog").then((response) => response.ok ? response.json() : null).then((data) => { if (data) { setBrandList(data.brands); setCategoryList(data.categories); setWhatsapp(data.settings.whatsapp); } }).catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (q.trim().length < 2) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => fetch(`/api/search?q=${encodeURIComponent(q.trim())}`, { signal: controller.signal }).then((response) => response.ok ? response.json() : []).then(setFound).catch(() => undefined), 180);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [q]);
   return <>
     <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
     <div className="announcement"><span>NORD IMPORTS®</span><p>Curadoria independente · Envios para todo o Brasil</p><span>EST. 2026</span></div>
@@ -34,12 +52,12 @@ export function StoreHeader() {
           <SheetContent side="left" className="mobile-menu-sheet" showCloseButton={false}>
             <SheetTitle className="sr-only">Menu principal</SheetTitle>
             <div className="mobile-menu-top"><BrandLogo className="header-logo" /><SheetClose asChild><button className="menu-close" aria-label="Fechar menu"><X /></button></SheetClose></div>
-            <nav className="mobile-nav" aria-label="Navegação mobile"><NavLinks closeMobile /></nav>
-            <a className="mobile-wa" target="_blank" rel="noreferrer" href={`https://wa.me/${settings.whatsapp}`}>FALAR COM A NORD <ArrowUpRight /></a>
+            <nav className="mobile-nav" aria-label="Navegação mobile"><NavLinks brandList={brandList} categoryList={categoryList} closeMobile /></nav>
+            <a className="mobile-wa" target="_blank" rel="noreferrer" href={`https://wa.me/${whatsapp}`}>FALAR COM A NORD <ArrowUpRight /></a>
           </SheetContent>
         </Sheet>
         <Link href="/" aria-label="Nord Imports — início"><BrandLogo className="header-logo" /></Link>
-        <nav className="main-nav" aria-label="Navegação principal"><NavLinks /></nav>
+        <nav className="main-nav" aria-label="Navegação principal"><NavLinks brandList={brandList} categoryList={categoryList} /></nav>
         <div className="nav-actions">
           <Dialog onOpenChange={(open) => { if (!open) setQ(""); }}>
             <DialogTrigger asChild><button className="icon-button search-trigger" aria-label="Buscar produtos"><Search /><span>Buscar</span></button></DialogTrigger>
@@ -50,12 +68,12 @@ export function StoreHeader() {
                 <p className="eyebrow">ENCONTRE SUA PRÓXIMA PEÇA</p>
                 <div className="search-line"><Search aria-hidden="true" /><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Modelo, marca ou categoria" aria-label="Termo de busca" /></div>
                 <div className="search-results" aria-live="polite" aria-atomic="true">
-                  {q.length < 2 ? <p>Digite pelo menos 2 caracteres para começar.</p> : found.length ? found.map((p) => <DialogClose asChild key={p.id}><Link href={`/produto/${p.slug}`}><Image src={p.image} alt="" width={92} height={76} /><span><b>{p.name}</b><small>{p.brand} · {p.category}</small></span><ArrowUpRight /></Link></DialogClose>) : <div className="search-empty"><b>Nenhuma peça por aqui.</b><p>Tente buscar por Nike, Jordan, tênis ou moletom.</p></div>}
+                  {q.length < 2 ? <p>Digite pelo menos 2 caracteres para começar.</p> : visibleResults.length ? visibleResults.map((p) => <DialogClose asChild key={p.id}><Link href={`/produto/${p.slug}`}><Image src={p.image} alt="" width={92} height={76} unoptimized={p.image.startsWith("http")} /><span><b>{p.name}</b><small>{p.brand} · {p.category}</small></span><ArrowUpRight /></Link></DialogClose>) : <div className="search-empty"><b>Nenhuma peça por aqui.</b><p>Tente buscar por Nike, Jordan, tênis ou moletom.</p></div>}
                 </div>
               </div>
             </DialogContent>
           </Dialog>
-          <a className="wa-small" target="_blank" rel="noreferrer" href={`https://wa.me/${settings.whatsapp}`}>Atendimento <ArrowUpRight size={16} /></a>
+          <a className="wa-small" target="_blank" rel="noreferrer" href={`https://wa.me/${whatsapp}`}>Atendimento <ArrowUpRight size={16} /></a>
         </div>
       </div>
     </header>

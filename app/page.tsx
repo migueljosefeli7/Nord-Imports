@@ -4,9 +4,12 @@ import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
 import { StoreHeader } from "@/components/store-header";
 import { StoreFooter } from "@/components/store-footer";
 import { ProductCard } from "@/components/product-card";
-import { products, brands, categories, settings } from "@/lib/data";
+import { getStoreSnapshot } from "@/lib/store-repository";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const { products, brands, categories, settings } = await getStoreSnapshot();
   const newest = products.slice(0, 10);
   const sought = products.filter((p) => p.sought);
   const rare = products.filter((p) => p.rare);

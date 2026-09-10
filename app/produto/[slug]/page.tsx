@@ -8,11 +8,12 @@ import { ProductCard } from "@/components/product-card";
 import { ShareButton } from "@/components/share-button";
 import { StoreFooter } from "@/components/store-footer";
 import { StoreHeader } from "@/components/store-header";
-import { products, settings } from "@/lib/data";
+import { getStoreSnapshot } from "@/lib/store-repository";
 
-export function generateStaticParams() { return products.map((p) => ({ slug: p.slug })); }
+export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  const { products } = await getStoreSnapshot();
   const p = products.find((x) => x.slug === slug);
   if (!p) return {};
   return { title: p.name, description: p.description, openGraph: { title: p.name, description: p.description, images: [p.image] }, twitter: { card: "summary_large_image", title: p.name, description: p.description, images: [p.image] } };
@@ -20,13 +21,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const { products, settings } = await getStoreSnapshot();
   const p = products.find((x) => x.slug === slug && x.active);
   if (!p) notFound();
   const related = products.filter((x) => x.brand === p.brand && x.id !== p.id).slice(0, 3);
   return <><StoreHeader /><main id="conteudo" tabIndex={-1} className="detail-page">
     <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/">Início</Link><span>/</span><Link href="/produtos">Produtos</Link><span>/</span><span aria-current="page">{p.name}</span></nav>
     <div className="detail-grid">
-      <div className="gallery">{p.images.map((im, i) => <Image src={im} alt={`${p.name} — foto ${i + 1}`} width={1200} height={1500} sizes="(max-width: 900px) 100vw, 60vw" priority={i === 0} key={i} />)}</div>
+      <div className="gallery">{p.images.map((im, i) => <Image src={im} alt={`${p.name} — foto ${i + 1}`} width={1200} height={1500} sizes="(max-width: 900px) 100vw, 60vw" priority={i === 0} unoptimized={im.startsWith("http")} key={i} />)}</div>
       <aside className="detail-info">
         <p className="detail-brand">{p.brand.toUpperCase()}</p><h1 className="detail-title">{p.name}</h1>
         <div className="availability"><span><i /> Disponível sob consulta</span><small>Produto importado</small></div>

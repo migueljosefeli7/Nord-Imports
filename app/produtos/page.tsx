@@ -16,10 +16,18 @@ function CatalogContent() {
   const [brand, setBrand] = useState(params.get("marca") || "");
   const [cat, setCat] = useState(params.get("categoria") || "");
   const [sub, setSub] = useState(params.get("subcategoria") || "");
-  const allowedCats = [...new Set(products.filter((p) => !brand || p.brand === brand).map((p) => p.category))];
-  const subs = [...new Set(products.filter((p) => (!brand || p.brand === brand) && (!cat || p.category === cat)).map((p) => p.subcategory))];
-  const list = useMemo(() => products.filter((p) => p.active && (!q || [p.name, p.brand, p.category, p.description].join(" ").toLowerCase().includes(q.toLowerCase())) && (!brand || p.brand === brand) && (!cat || p.category === cat) && (!sub || p.subcategory === sub)), [q, brand, cat, sub]);
+  const [catalogProducts, setCatalogProducts] = useState(products);
+  const [brandOptions, setBrandOptions] = useState(brands);
+  const allowedCats = [...new Set(catalogProducts.filter((p) => !brand || p.brand === brand).map((p) => p.category))];
+  const subs = [...new Set(catalogProducts.filter((p) => (!brand || p.brand === brand) && (!cat || p.category === cat)).map((p) => p.subcategory))];
+  const list = useMemo(() => catalogProducts.filter((p) => p.active && (!q || [p.name, p.brand, p.category, p.description].join(" ").toLowerCase().includes(q.toLowerCase())) && (!brand || p.brand === brand) && (!cat || p.category === cat) && (!sub || p.subcategory === sub)), [catalogProducts, q, brand, cat, sub]);
   const active = [["Marca", brand, () => { setBrand(""); setCat(""); setSub(""); }], ["Categoria", cat, () => { setCat(""); setSub(""); }], ["Subcategoria", sub, () => setSub("")]] as const;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/catalog", { signal: controller.signal }).then((response) => response.ok ? response.json() : null).then((data) => { if (data) { setCatalogProducts(data.products); setBrandOptions(data.brands); } }).catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -42,7 +50,7 @@ function CatalogContent() {
       <div className="filter-panel-title"><SlidersHorizontal aria-hidden="true" /><h2 id="filter-title">Filtrar catálogo</h2>{(q || brand || cat || sub) && <button onClick={clear}>Limpar tudo</button>}</div>
       <div className="filter-bar">
         <label className="search-field"><span>Buscar</span><div><Search aria-hidden="true" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome, marca ou categoria" /></div></label>
-        <label><span>Marca</span><select value={brand} onChange={(e) => { setBrand(e.target.value); setCat(""); setSub(""); }}><option value="">Todas</option>{brands.map((x) => <option key={x}>{x}</option>)}</select></label>
+        <label><span>Marca</span><select value={brand} onChange={(e) => { setBrand(e.target.value); setCat(""); setSub(""); }}><option value="">Todas</option>{brandOptions.map((x) => <option key={x}>{x}</option>)}</select></label>
         <label><span>Categoria</span><select value={cat} onChange={(e) => { setCat(e.target.value); setSub(""); }}><option value="">Todas</option>{allowedCats.map((x) => <option key={x}>{x}</option>)}</select></label>
         <label><span>Subcategoria</span><select value={sub} onChange={(e) => setSub(e.target.value)} disabled={!cat}><option value="">Todas</option>{subs.map((x) => <option key={x}>{x}</option>)}</select></label>
       </div>
