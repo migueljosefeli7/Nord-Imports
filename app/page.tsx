@@ -10,7 +10,7 @@ export default function Home() {
   const newest = products.slice(0, 10);
   const sought = products.filter((p) => p.sought);
   const rare = products.filter((p) => p.rare);
-  return <><div id="top" /><StoreHeader /><main>
+  return <><div id="top" /><StoreHeader /><main id="conteudo" tabIndex={-1}>
     <section className="hero">
       <Image src="/hero-nord.png" alt="Sneaker e peças selecionadas Nord Imports" fill priority sizes="100vw" />
       <div className="hero-shade" />

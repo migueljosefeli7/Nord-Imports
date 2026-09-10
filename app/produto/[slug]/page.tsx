@@ -1,3 +1,41 @@
-import type{Metadata}from"next";import Image from"next/image";import Link from"next/link";import{notFound}from"next/navigation";import{MessageCircle}from"lucide-react";import{products,settings}from"@/lib/data";import{StoreHeader}from"@/components/store-header";import{StoreFooter}from"@/components/store-footer";import{ProductCard}from"@/components/product-card";import{ShareButton}from"@/components/share-button";
-export function generateStaticParams(){return products.map(p=>({slug:p.slug}))}export async function generateMetadata({params}:{params:Promise<{slug:string}>}):Promise<Metadata>{const{slug}=await params,p=products.find(x=>x.slug===slug);if(!p)return{};return{title:p.name,description:p.description,openGraph:{title:p.name,description:p.description,images:[p.image]},twitter:{card:"summary_large_image",title:p.name,description:p.description,images:[p.image]}}}
-export default async function ProductPage({params}:{params:Promise<{slug:string}>}){const{slug}=await params,p=products.find(x=>x.slug===slug&&x.active);if(!p)notFound();const related=products.filter(x=>x.brand===p.brand&&x.id!==p.id).slice(0,3),message=encodeURIComponent(`${settings.message} ${p.name} — `);return <><StoreHeader/><main className="detail-page"><div className="breadcrumbs"><Link href="/">Início</Link><span>/</span><Link href="/produtos">Produtos</Link><span>/</span><span>{p.name}</span></div><div className="detail-grid"><div className="gallery">{p.images.map((im,i)=><Image src={im} alt={`${p.name} — foto ${i+1}`} width={1200} height={1500} sizes="(max-width: 900px) 100vw, 60vw" key={i}/>)}</div><aside className="detail-info"><p className="detail-brand">{p.brand.toUpperCase()}</p><h1 className="detail-title">{p.name}</h1><div className="detail-meta"><Link href={`/produtos?marca=${p.brand}`}>{p.brand}</Link><Link href={`/produtos?categoria=${p.category}`}>{p.category}</Link><Link href={`/produtos?subcategoria=${p.subcategory}`}>{p.subcategory}</Link><span>Importado</span><span>Sob consulta</span></div><p className="detail-description">{p.description}</p><div className="detail-actions"><a className="button" target="_blank" rel="noreferrer" href={`https://wa.me/${settings.whatsapp}?text=${message}`}><MessageCircle/> TENHO INTERESSE</a><ShareButton/></div></aside></div>{related.length>0&&<section className="products-section" style={{paddingInline:0,paddingBottom:0}}><div className="section-title-row"><div><p className="eyebrow">MESMA MARCA</p><h2>Você também pode gostar</h2></div></div><div className="products-grid">{related.map((x,i)=><ProductCard product={x} index={i} key={x.id}/>)}</div></section>}</main><StoreFooter/></>}
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Check, PackageCheck, ShieldCheck } from "lucide-react";
+import { InterestButton } from "@/components/interest-button";
+import { ProductCard } from "@/components/product-card";
+import { ShareButton } from "@/components/share-button";
+import { StoreFooter } from "@/components/store-footer";
+import { StoreHeader } from "@/components/store-header";
+import { products, settings } from "@/lib/data";
+
+export function generateStaticParams() { return products.map((p) => ({ slug: p.slug })); }
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const p = products.find((x) => x.slug === slug);
+  if (!p) return {};
+  return { title: p.name, description: p.description, openGraph: { title: p.name, description: p.description, images: [p.image] }, twitter: { card: "summary_large_image", title: p.name, description: p.description, images: [p.image] } };
+}
+
+export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const p = products.find((x) => x.slug === slug && x.active);
+  if (!p) notFound();
+  const related = products.filter((x) => x.brand === p.brand && x.id !== p.id).slice(0, 3);
+  return <><StoreHeader /><main id="conteudo" tabIndex={-1} className="detail-page">
+    <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/">Início</Link><span>/</span><Link href="/produtos">Produtos</Link><span>/</span><span aria-current="page">{p.name}</span></nav>
+    <div className="detail-grid">
+      <div className="gallery">{p.images.map((im, i) => <Image src={im} alt={`${p.name} — foto ${i + 1}`} width={1200} height={1500} sizes="(max-width: 900px) 100vw, 60vw" priority={i === 0} key={i} />)}</div>
+      <aside className="detail-info">
+        <p className="detail-brand">{p.brand.toUpperCase()}</p><h1 className="detail-title">{p.name}</h1>
+        <div className="availability"><span><i /> Disponível sob consulta</span><small>Produto importado</small></div>
+        <div className="detail-meta"><Link href={`/produtos?marca=${encodeURIComponent(p.brand)}`}>{p.brand}</Link><Link href={`/produtos?categoria=${encodeURIComponent(p.category)}`}>{p.category}</Link><Link href={`/produtos?subcategoria=${encodeURIComponent(p.subcategory)}`}>{p.subcategory}</Link></div>
+        <section className="product-story"><h2>Sobre esta peça</h2><p>{p.description}</p></section>
+        <div className="detail-actions"><InterestButton phone={settings.whatsapp} message={settings.message} product={p.name} /><ShareButton /></div>
+        <ul className="trust-list"><li><ShieldCheck aria-hidden="true" /><span><b>Curadoria Nord</b><small>Selecionado individualmente pela nossa equipe.</small></span></li><li><PackageCheck aria-hidden="true" /><span><b>Envio combinado</b><small>Prazo e entrega confirmados no atendimento.</small></span></li><li><Check aria-hidden="true" /><span><b>Atendimento humano</b><small>Tire dúvidas sobre modelo, tamanho e disponibilidade.</small></span></li></ul>
+      </aside>
+    </div>
+    {related.length > 0 && <section className="products-section related-section"><div className="section-title-row"><div><p className="eyebrow">MESMA MARCA</p><h2>Você também pode gostar</h2></div><Link href={`/produtos?marca=${encodeURIComponent(p.brand)}`}>VER {p.brand.toUpperCase()}</Link></div><div className="products-grid">{related.map((x, i) => <ProductCard product={x} index={i} key={x.id} />)}</div></section>}
+  </main><StoreFooter /></>;
+}
