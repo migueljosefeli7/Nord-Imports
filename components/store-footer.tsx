@@ -20,6 +20,6 @@ export function StoreFooter() {
       <div><h4>Em destaque</h4>{brandList.slice(0, 5).map((b) => <Link href={`/marca/${b.toLowerCase().replaceAll(" ", "-")}`} key={b}>{b}</Link>)}</div>
       <div><h4>Conecte-se</h4><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">WhatsApp <ArrowUpRight size={15} /></a><span>Instagram · em breve</span></div>
     </div>
-    <div className="footer-bottom"><span>© 2026 NORD IMPORTS</span><span>ORIGINAIS · IMPORTADOS · SELECIONADOS</span><a href="#top">VOLTAR AO TOPO ↑</a></div>
+    <div className="footer-bottom"><span>© 2026 NORD IMPORTS</span><span>CURADORIA · QUALIDADE · IDENTIDADE</span><a href="#top">VOLTAR AO TOPO ↑</a></div>
   </footer>;
 }
