@@ -31,7 +31,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <div className="detail-grid">
       <ProductGallery images={p.images} name={p.name} />
       <aside className="detail-info">
-        <p className="detail-brand">{p.brandLogo && <Image src={p.brandLogo} alt={`Logo ${p.brand}`} width={42} height={42} unoptimized />}{p.brand.toUpperCase()}</p><h1 className="detail-title">{p.name}</h1>{price ? <p className="detail-price">{price}<small>Pix, cartão à vista ou em até 12x com juros</small></p> : <p className="detail-consult">VALOR SOB CONSULTA</p>}
+        <p className="detail-brand">{p.brandLogo && <Image src={p.brandLogo} alt={`Logo ${p.brand}`} width={42} height={42} unoptimized />}{p.brand.toUpperCase()}</p><h1 className={`detail-title ${p.name.length > 55 ? "long" : ""}`}>{p.name}</h1>{price ? <p className="detail-price">{price}<small>Pix, cartão à vista ou em até 12x com juros</small></p> : <p className="detail-consult">VALOR SOB CONSULTA</p>}
         <div className="availability"><span><i /> Disponível sob consulta</span><small>Produto importado</small></div>
         <div className="detail-meta"><Link href={`/produtos?marca=${encodeURIComponent(p.brand)}`}>{p.brand}</Link><Link href={`/produtos?categoria=${encodeURIComponent(p.category)}`}>{p.category}</Link><Link href={`/produtos?subcategoria=${encodeURIComponent(p.subcategory)}`}>{p.subcategory}</Link></div>
         <section className="product-story"><h2>Sobre esta peça</h2><p>{p.description}</p></section>
