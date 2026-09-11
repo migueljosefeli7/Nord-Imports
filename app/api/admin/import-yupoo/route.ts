@@ -4,10 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/admin-types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const MAX_ALBUMS = 30;
-const MAX_IMAGES = 80;
 
 export async function POST(request: Request) {
   const { url, key } = getSupabaseBrowserConfig();
@@ -42,7 +41,7 @@ export async function POST(request: Request) {
         const albumId = albumUrl.match(/\/albums\/(\d+)/)?.[1] || Date.now().toString();
         const product = await supabase.from("products").insert({ name: title, slug: `${slugify(title).slice(0, 70)}-${albumId}`, description: "Produto importado do Yupoo. Revise o nome, a descrição e publique quando estiver pronto.", brand_id: body.brand_id, categoria_id: body.categoria_id, subcategoria_id: body.subcategoria_id, yupoo_album_url: albumUrl, active: false }).select("id").single();
         if (product.error) throw product.error;
-        const imageUrls = extractImageUrls(html).slice(0, MAX_IMAGES);
+        const imageUrls = extractImageUrls(html);
         let savedImages = 0;
         for (let index = 0; index < imageUrls.length; index += 1) {
           try {
