@@ -28,22 +28,28 @@ export async function POST(request: Request) {
 
     const albumHtml = new Map<string, string>();
     const discovered: string[] = [];
+    let sourceFailures = 0;
     for (const value of submitted) {
-      const source = safeYupooUrl(value);
-      const html = await fetchHtml(source);
-      if (source.pathname.includes("/albums/")) {
-        discovered.push(source.href);
-        albumHtml.set(source.href, html);
-      } else {
-        discovered.push(...extractAlbumUrls(html, source));
-      }
+      try {
+        const source = safeYupooUrl(value);
+        const html = await fetchHtml(source);
+        if (source.pathname.includes("/albums/")) {
+          discovered.push(source.href);
+          albumHtml.set(source.href, html);
+        } else {
+          const found = extractAlbumUrls(html, source);
+          if (!found.length) sourceFailures += 1;
+          discovered.push(...found);
+        }
+      } catch { sourceFailures += 1; }
     }
     const albumUrls = [...new Set(discovered)].slice(0, MAX_ALBUMS);
     if (!albumUrls.length) throw new Error("Nenhum álbum foi encontrado nos links informados.");
+    const total = albumUrls.length + sourceFailures;
 
-    const job = await supabase.from("import_jobs").insert({ user_id: user.id, source_url: albumUrls[0], status: "running", phase: "importando lote", total: albumUrls.length }).select("id").single();
+    const job = await supabase.from("import_jobs").insert({ user_id: user.id, source_url: albumUrls[0], status: "running", phase: "importando lote", total }).select("id").single();
     const jobId = job.data?.id as string | undefined;
-    let created = 0; let duplicates = 0; let failures = 0;
+    let created = 0; let duplicates = 0; let failures = sourceFailures;
 
     for (const albumUrl of albumUrls) {
       try {
@@ -79,8 +85,8 @@ export async function POST(request: Request) {
       } catch { failures += 1; }
       if (jobId) await supabase.from("import_jobs").update({ created, duplicates, failures }).eq("id", jobId);
     }
-    if (jobId) await supabase.from("import_jobs").update({ status: failures === albumUrls.length ? "failed" : "done", phase: "concluído", created, duplicates, failures }).eq("id", jobId);
-    return NextResponse.json({ created, duplicates, failures, total: albumUrls.length });
+    if (jobId) await supabase.from("import_jobs").update({ status: failures === total ? "failed" : "done", phase: "concluído", created, duplicates, failures }).eq("id", jobId);
+    return NextResponse.json({ created, duplicates, failures, total });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível importar." }, { status: 400 });
   }
