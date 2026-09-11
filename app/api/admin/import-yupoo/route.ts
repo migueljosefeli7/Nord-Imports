@@ -21,14 +21,27 @@ export async function POST(request: Request) {
   if (!isAdmin) return NextResponse.json({ error: "Apenas administradores podem importar." }, { status: 403 });
 
   try {
-    const body = await request.json() as { url?: string; brand_id?: string; categoria_id?: string; subcategoria_id?: string };
-    if (!body.url || !body.brand_id || !body.categoria_id || !body.subcategoria_id) throw new Error("URL e classificação são obrigatórias.");
-    const source = safeYupooUrl(body.url);
-    const firstHtml = await fetchHtml(source);
-    const albumUrls = source.pathname.includes("/albums/") ? [source.href] : extractAlbumUrls(firstHtml, source).slice(0, MAX_ALBUMS);
-    if (!albumUrls.length) throw new Error("Nenhum álbum foi encontrado nessa página. Tente a URL direta do álbum.");
+    const body = await request.json() as { url?: string; urls?: string[]; brand_id?: string; categoria_id?: string; subcategoria_id?: string };
+    const submitted = [...new Set((body.urls?.length ? body.urls : body.url?.split(/\s+/) || []).map((value) => value.trim()).filter(Boolean))];
+    if (!submitted.length || !body.brand_id || !body.categoria_id || !body.subcategoria_id) throw new Error("Links e classificação são obrigatórios.");
+    if (submitted.length > MAX_ALBUMS) throw new Error(`Envie no máximo ${MAX_ALBUMS} links por importação.`);
 
-    const job = await supabase.from("import_jobs").insert({ user_id: user.id, source_url: source.href, status: "running", phase: "importando", total: albumUrls.length }).select("id").single();
+    const albumHtml = new Map<string, string>();
+    const discovered: string[] = [];
+    for (const value of submitted) {
+      const source = safeYupooUrl(value);
+      const html = await fetchHtml(source);
+      if (source.pathname.includes("/albums/")) {
+        discovered.push(source.href);
+        albumHtml.set(source.href, html);
+      } else {
+        discovered.push(...extractAlbumUrls(html, source));
+      }
+    }
+    const albumUrls = [...new Set(discovered)].slice(0, MAX_ALBUMS);
+    if (!albumUrls.length) throw new Error("Nenhum álbum foi encontrado nos links informados.");
+
+    const job = await supabase.from("import_jobs").insert({ user_id: user.id, source_url: albumUrls[0], status: "running", phase: "importando lote", total: albumUrls.length }).select("id").single();
     const jobId = job.data?.id as string | undefined;
     let created = 0; let duplicates = 0; let failures = 0;
 
@@ -36,7 +49,7 @@ export async function POST(request: Request) {
       try {
         const existing = await supabase.from("products").select("id").eq("yupoo_album_url", albumUrl).maybeSingle();
         if (existing.data) { duplicates += 1; continue; }
-        const html = albumUrl === source.href ? firstHtml : await fetchHtml(new URL(albumUrl));
+        const html = albumHtml.get(albumUrl) || await fetchHtml(new URL(albumUrl));
         const title = extractMeta(html, "og:title") || extractTitle(html) || `Produto Yupoo ${albumUrl.split("/").filter(Boolean).pop()}`;
         const albumId = albumUrl.match(/\/albums\/(\d+)/)?.[1] || Date.now().toString();
         const product = await supabase.from("products").insert({ name: title, slug: `${slugify(title).slice(0, 70)}-${albumId}`, description: "Produto importado do Yupoo. Revise o nome, a descrição e publique quando estiver pronto.", brand_id: body.brand_id, categoria_id: body.categoria_id, subcategoria_id: body.subcategoria_id, yupoo_album_url: albumUrl, active: false }).select("id").single();

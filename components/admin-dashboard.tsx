@@ -18,7 +18,6 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  ScanText,
   Settings,
   Tags,
   Trash2,
@@ -60,16 +59,6 @@ type DeleteTarget =
   | { kind: "products"; ids: string[] }
   | { kind: "brand" | "category" | "subcategory"; id: string; label: string }
   | null;
-type AiSuggestion = {
-  id: string;
-  name: string;
-  sku: string | null;
-  description: string;
-  confidence: "high" | "medium" | "low";
-  reason: string;
-  approved: boolean;
-};
-
 export function AdminDashboard() {
   const router = useRouter();
   const [status, setStatus] = useState<
@@ -106,14 +95,12 @@ export function AdminDashboard() {
     name: "",
   });
   const [importForm, setImportForm] = useState({
-    url: "",
+    urls: "",
     brand_id: "",
     categoria_id: "",
     subcategoria_id: "",
   });
   const [importStatus, setImportStatus] = useState("");
-  const [aiOpen, setAiOpen] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
 
   const notify = useCallback(
     (text: string, tone: "success" | "error" = "success") => {
@@ -593,13 +580,14 @@ export function AdminDashboard() {
 
   async function runImport(event: React.FormEvent) {
     event.preventDefault();
+    const urls = importForm.urls.split(/\s+/).map((url) => url.trim()).filter(Boolean);
     if (
-      !importForm.url ||
+      !urls.length ||
       !importForm.brand_id ||
       !importForm.categoria_id ||
       !importForm.subcategoria_id
     ) {
-      notify("Informe a URL e a classificação completa.", "error");
+      notify("Cole pelo menos um link e informe a classificação completa.", "error");
       return;
     }
     setBusy(true);
@@ -614,13 +602,14 @@ export function AdminDashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token || ""}`,
         },
-        body: JSON.stringify(importForm),
+        body: JSON.stringify({ ...importForm, urls }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Falha na importação.");
       setImportStatus(
         `${result.created} novos · ${result.duplicates} existentes · ${result.failures} falhas`,
       );
+      setImportForm((current) => ({ ...current, urls: "" }));
       await loadData();
       notify("Importação concluída.");
     } catch (error) {
@@ -632,76 +621,6 @@ export function AdminDashboard() {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function analyzeProducts() {
-    setBusy(true);
-    try {
-      const chosen = products
-        .filter((product) => selected.includes(product.id))
-        .map(({ id, name, description, sku }) => ({
-          id,
-          name,
-          description,
-          sku,
-        }));
-      const {
-        data: { session },
-      } = await supabaseBrowser().auth.getSession();
-      const response = await fetch("/api/admin/rename", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || ""}`,
-        },
-        body: JSON.stringify({ products: chosen }),
-      });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(
-          result.error || "Não foi possível analisar os produtos.",
-        );
-      setAiSuggestions(
-        result.suggestions.map((item: Omit<AiSuggestion, "approved">) => ({
-          ...item,
-          approved: item.confidence !== "low",
-        })),
-      );
-      setAiOpen(true);
-    } catch (error) {
-      notify(
-        error instanceof Error ? error.message : "Falha na análise.",
-        "error",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function applyAiSuggestions() {
-    const approved = aiSuggestions.filter((item) => item.approved);
-    if (!approved.length) {
-      notify("Aprove pelo menos uma sugestão.", "error");
-      return;
-    }
-    await perform(async () => {
-      const supabase = supabaseBrowser();
-      for (const item of approved) {
-        const result = await supabase
-          .from("products")
-          .update({
-            name: item.name,
-            slug: `${slugify(item.name)}-${item.id.slice(0, 6)}`,
-            sku: item.sku || null,
-            description: item.description,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", item.id);
-        if (result.error) throw result.error;
-      }
-      setAiOpen(false);
-      setSelected([]);
-    }, `${approved.length} sugestão(ões) aplicada(s).`);
   }
 
   async function signOut() {
@@ -949,24 +868,25 @@ export function AdminDashboard() {
           <form className="admin-panel import-panel" onSubmit={runImport}>
             <Upload size={36} />
             <div>
-              <h2>Importar do Yupoo</h2>
+              <h2>Importar produtos do Yupoo</h2>
               <p>
-                Cole a URL de um álbum ou página de categoria. Cada álbum novo
-                vira um produto e as fotos são re-hospedadas.
+                Cole vários links de álbuns — um por linha. Todos serão importados
+                para a mesma marca, categoria e subcategoria escolhidas abaixo.
               </p>
             </div>
             <label>
-              URL do Yupoo
-              <input
-                className="admin-input"
-                type="url"
+              Links dos produtos
+              <textarea
+                className="admin-input import-url-list"
                 required
-                value={importForm.url}
+                rows={7}
+                value={importForm.urls}
                 onChange={(e) =>
-                  setImportForm({ ...importForm, url: e.target.value })
+                  setImportForm({ ...importForm, urls: e.target.value })
                 }
-                placeholder="https://...x.yupoo.com/albums/..."
+                placeholder={"https://loja.x.yupoo.com/albums/123456\nhttps://loja.x.yupoo.com/albums/789012\nhttps://loja.x.yupoo.com/albums/345678"}
               />
+              <small>{importForm.urls.split(/\s+/).filter(Boolean).length} link(s) na fila · máximo de 30 links por importação</small>
             </label>
             <div className="form-row">
               <label>
@@ -1040,7 +960,7 @@ export function AdminDashboard() {
               <RefreshCw className={busy ? "spin" : ""} /> INICIAR IMPORTAÇÃO
             </button>
             <div className="progress-card" aria-live="polite">
-              <span>{importStatus || "Pronto para importar"}</span>
+              <span>{importStatus || "Pronto para importar o lote"}</span>
               <div>
                 <i className={busy ? "running" : ""} />
               </div>
@@ -1271,19 +1191,6 @@ export function AdminDashboard() {
           </form>
         )}
 
-        <section className="ai-card">
-          <ScanText />
-          <div>
-            <b>Renomeação inteligente</b>
-            <p>
-              Selecione produtos para extrair SKU, identificar o modelo e
-              preparar descrições.
-            </p>
-          </div>
-          <button disabled={!selected.length || busy} onClick={analyzeProducts}>
-            ANALISAR {selected.length || ""} PEÇAS
-          </button>
-        </section>
       </main>
 
       <Dialog open={productOpen} onOpenChange={setProductOpen}>
@@ -1629,105 +1536,6 @@ export function AdminDashboard() {
             </button>
             <button className="button primary" type="submit" form="bulk-form">
               MOVER PRODUTOS
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={aiOpen} onOpenChange={setAiOpen}>
-        <DialogContent className="admin-dialog ai-dialog">
-          <DialogHeader>
-            <DialogTitle>Revisar sugestões da IA</DialogTitle>
-            <DialogDescription>
-              Nada é salvo sem sua aprovação. Confira principalmente itens de
-              confiança média ou baixa.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="ai-suggestions">
-            {aiSuggestions.map((item, index) => (
-              <article key={item.id}>
-                <label className="ai-approve">
-                  <input
-                    type="checkbox"
-                    checked={item.approved}
-                    onChange={(event) =>
-                      setAiSuggestions((current) =>
-                        current.map((entry, position) =>
-                          position === index
-                            ? { ...entry, approved: event.target.checked }
-                            : entry,
-                        ),
-                      )
-                    }
-                  />{" "}
-                  Aprovar esta alteração
-                </label>
-                <span className={`confidence ${item.confidence}`}>
-                  {item.confidence === "high"
-                    ? "Confiança alta"
-                    : item.confidence === "medium"
-                      ? "Confiança média"
-                      : "Confiança baixa"}
-                </span>
-                <label>
-                  Nome sugerido
-                  <input
-                    className="admin-input"
-                    value={item.name}
-                    onChange={(event) =>
-                      setAiSuggestions((current) =>
-                        current.map((entry, position) =>
-                          position === index
-                            ? { ...entry, name: event.target.value }
-                            : entry,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label>
-                  SKU
-                  <input
-                    className="admin-input"
-                    value={item.sku || ""}
-                    onChange={(event) =>
-                      setAiSuggestions((current) =>
-                        current.map((entry, position) =>
-                          position === index
-                            ? { ...entry, sku: event.target.value }
-                            : entry,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label>
-                  Descrição
-                  <textarea
-                    className="admin-input"
-                    rows={4}
-                    value={item.description}
-                    onChange={(event) =>
-                      setAiSuggestions((current) =>
-                        current.map((entry, position) =>
-                          position === index
-                            ? { ...entry, description: event.target.value }
-                            : entry,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <small>{item.reason}</small>
-              </article>
-            ))}
-          </div>
-          <DialogFooter>
-            <button className="button" onClick={() => setAiOpen(false)}>
-              CANCELAR
-            </button>
-            <button className="button primary" onClick={applyAiSuggestions}>
-              SALVAR APROVADOS
             </button>
           </DialogFooter>
         </DialogContent>
