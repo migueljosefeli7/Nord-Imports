@@ -2,14 +2,14 @@ import { readFile } from "node:fs/promises";
 import process from "node:process";
 import pg from "pg";
 
-const connectionString = process.env.STORAGE_POSTGRES_URL_NON_POOLING || process.env.STORAGE_POSTGRES_URL;
+const connectionString = process.env.STORAGE_POSTGRES_URL;
 
 if (!connectionString) {
   console.log("Supabase migration skipped: no production database connection.");
   process.exit(0);
 }
 
-const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString });
 
 try {
   await client.connect();
