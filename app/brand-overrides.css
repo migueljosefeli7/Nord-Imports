@@ -1,6 +1,24 @@
 .about-blue::before{content:"NORD IMPORTS / SANTA CATARINA / 2026"}
 
+:root{--nord:#2562eb;--ink:#07090d;--paper:#f6f6f2;--line:#c8cbd2}
+body{background:var(--paper)}
+button,a{touch-action:manipulation}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #ffdf4d;outline-offset:3px}
+.hero{min-height:720px}.hero-copy{width:min(1050px,90vw)}.hero h1{font-size:clamp(4rem,8.9vw,9.8rem)}
+.trust-ribbon{display:grid;grid-template-columns:repeat(4,1fr);background:var(--nord);color:white;border-block:2px solid var(--ink)}
+.trust-ribbon article{min-height:150px;padding:28px 24px;display:grid;grid-template-columns:34px 1fr;gap:16px;border-right:1px solid #ffffff55;align-content:center}
+.trust-ribbon article:last-child{border:0}.trust-ribbon svg{width:28px;height:28px}.trust-ribbon span{display:grid;gap:8px}.trust-ribbon b{font-size:.76rem;letter-spacing:.1em}.trust-ribbon small{font-size:.78rem;line-height:1.55;color:#dce6ff}
+.product-info>span{font-weight:800;color:var(--ink);font-size:.78rem}.detail-price{font-family:var(--font-display);font-size:2.4rem;margin:12px 0 20px}.detail-price small{display:block;font-family:var(--font-body);font-size:.7rem;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.07em}
+.tracking-page{padding:90px 5vw 120px;background:var(--paper)}.tracking-hero{display:grid;grid-template-columns:1.25fr .75fr;align-items:end;gap:8vw;padding-bottom:70px}.tracking-hero .eyebrow{grid-column:1/-1}.tracking-hero h1{font-family:var(--font-display);font-size:clamp(4.5rem,9vw,10rem);line-height:.82;text-transform:uppercase;margin:0}.tracking-hero h1 i{font-family:"Times New Roman",serif;font-weight:400;text-transform:none}.tracking-hero>p:last-child{font-size:1.05rem;line-height:1.7;color:var(--muted);max-width:480px}
+.tracking-card{display:grid;grid-template-columns:.8fr 1.2fr;background:var(--ink);color:white;border:2px solid var(--ink)}.tracking-card>div{padding:50px}.tracking-card>div>svg{width:48px;height:48px;color:#82a5ff}.tracking-card h2{font-family:var(--font-display);font-size:3.3rem;text-transform:uppercase;margin:12px 0}.tracking-card>div>p:last-child{color:#b5b9c4;line-height:1.65}.tracking-card form{background:white;color:var(--ink);padding:50px;display:grid;gap:12px;align-content:center}.tracking-card label{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.tracking-card input{min-height:68px;border:2px solid var(--ink);font-family:var(--font-display);font-size:2rem;text-transform:uppercase;padding:0 18px}.tracking-card form small{color:var(--muted)}.tracking-card form [role=alert]{color:#9c1010;margin:0}.tracking-card .button{margin-top:12px;min-height:56px;justify-content:center}
+.tracking-flow{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);border-top:0}.tracking-flow article{padding:35px;min-height:240px;border-right:1px solid var(--ink);position:relative}.tracking-flow article:last-child{border:0}.tracking-flow span{position:absolute;right:20px;top:20px;font-size:.68rem;font-weight:800}.tracking-flow svg{width:30px;height:30px;color:var(--nord)}.tracking-flow h2{font-family:var(--font-display);font-size:1.8rem;text-transform:uppercase;margin:38px 0 10px}.tracking-flow p{color:var(--muted);line-height:1.6}.tracking-help{text-align:center;margin:38px 0 0}.tracking-help a{font-weight:800;text-decoration:underline}
+.price-toggle{display:flex!important;grid-template-columns:20px 1fr!important;align-items:center;text-transform:none!important}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
 @media(max-width:640px){
   .admin-main>header{gap:16px;flex-wrap:wrap}
   .admin-main>header .button{display:flex;min-height:46px}
+  .hero{min-height:680px}.hero h1{font-size:clamp(3.25rem,15.5vw,5.4rem)}.hero-bottom p{font-size:.8rem;line-height:1.5}
+  .trust-ribbon{grid-template-columns:1fr 1fr}.trust-ribbon article{min-height:170px;padding:22px 16px;grid-template-columns:1fr;border-bottom:1px solid #ffffff55}.trust-ribbon article:nth-child(2){border-right:0}
+  .tracking-page{padding:65px 5vw 80px}.tracking-hero{grid-template-columns:1fr;padding-bottom:45px}.tracking-hero .eyebrow{grid-column:auto}.tracking-hero h1{font-size:3.7rem}.tracking-card{grid-template-columns:1fr}.tracking-card>div,.tracking-card form{padding:30px 22px}.tracking-card input{font-size:1.45rem}.tracking-flow{grid-template-columns:1fr}.tracking-flow article{min-height:auto;border-right:0;border-bottom:1px solid var(--ink)}
 }

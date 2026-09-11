@@ -5,7 +5,7 @@ import "./brand-overrides.css";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: { default: "Nord Imports — Sneakers & Streetwear", template: "%s | Nord Imports" },
-  description: "Curadoria de sneakers e streetwear importados. Peças selecionadas, achados raros e atendimento personalizado.",
+  description: "Curadoria de sneakers e moda de luxo selecionados a dedo, com atendimento personalizado e entrega para todo o Brasil.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

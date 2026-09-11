@@ -3,7 +3,7 @@ import { brands as fallbackBrands, categories as fallbackCategories, products as
 import { getSupabaseBrowserConfig } from "@/lib/supabase";
 
 export type StoreSnapshot = { products: Product[]; brands: string[]; categories: string[]; settings: { whatsapp: string; message: string }; configured: boolean; error?: string };
-type RawProduct = { id: string; slug: string; name: string; description: string | null; brand_id: string | null; categoria_id: string | null; subcategoria_id: string | null; active: boolean; rare: boolean | null; sought: boolean | null; created_at: string; product_images: { url: string; sort_order: number; is_cover: boolean }[] };
+type RawProduct = { id: string; slug: string; name: string; description: string | null; brand_id: string | null; categoria_id: string | null; subcategoria_id: string | null; active: boolean; rare: boolean | null; sought: boolean | null; price: number | null; show_price: boolean | null; created_at: string; product_images: { url: string; sort_order: number; is_cover: boolean }[] };
 
 export async function getStoreSnapshot(): Promise<StoreSnapshot> {
   const { url, key } = getSupabaseBrowserConfig();
@@ -14,7 +14,7 @@ export async function getStoreSnapshot(): Promise<StoreSnapshot> {
       supabase.from("brands").select("id,name,slug").order("name"),
       supabase.from("categories").select("id,name,slug,brand_id").order("name"),
       supabase.from("subcategories").select("id,name,slug,category_id").order("name"),
-      supabase.from("products").select("id,slug,name,description,brand_id,categoria_id,subcategoria_id,active,rare,sought,created_at,product_images(url,sort_order,is_cover)").eq("active", true).order("created_at", { ascending: false }),
+      supabase.from("products").select("id,slug,name,description,brand_id,categoria_id,subcategoria_id,active,rare,sought,price,show_price,created_at,product_images(url,sort_order,is_cover)").eq("active", true).order("created_at", { ascending: false }),
       supabase.from("store_settings").select("whatsapp,default_message").eq("id", 1).maybeSingle(),
     ]);
     const queryError = brandsResult.error || categoriesResult.error || subcategoriesResult.error || productsResult.error || settingsResult.error;
@@ -24,7 +24,7 @@ export async function getStoreSnapshot(): Promise<StoreSnapshot> {
     const subcategoryMap = new Map((subcategoriesResult.data || []).map((item) => [item.id, item.name]));
     const products: Product[] = ((productsResult.data || []) as unknown as RawProduct[]).map((item) => {
       const images = [...(item.product_images || [])].sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order).map((image) => image.url);
-      return { id: item.id, slug: item.slug, name: item.name, brand: brandMap.get(item.brand_id) || "Sem marca", category: categoryMap.get(item.categoria_id) || "Sem categoria", subcategory: subcategoryMap.get(item.subcategoria_id) || "Sem subcategoria", description: item.description || "", image: images[0] || "/hero-nord.png", images: images.length ? images : ["/hero-nord.png"], active: true, rare: Boolean(item.rare), sought: Boolean(item.sought), createdAt: item.created_at };
+      return { id: item.id, slug: item.slug, name: item.name, brand: brandMap.get(item.brand_id) || "Sem marca", category: categoryMap.get(item.categoria_id) || "Sem categoria", subcategory: subcategoryMap.get(item.subcategoria_id) || "Sem subcategoria", description: item.description || "", image: images[0] || "/hero-nord.png", images: images.length ? images : ["/hero-nord.png"], active: true, rare: Boolean(item.rare), sought: Boolean(item.sought), price: item.price, showPrice: Boolean(item.show_price), createdAt: item.created_at };
     });
     return {
       products,

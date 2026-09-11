@@ -21,6 +21,7 @@ function NavLinks({ brandList, categoryList, closeMobile = false }: { brandList:
     <div className="nav-drop"><button aria-haspopup="true">Marcas</button><div>{brandList.map((b) => <MaybeClose enabled={closeMobile} key={b}><Link href={`/marca/${encodeURIComponent(b.toLowerCase().replaceAll(" ", "-"))}`}>{b}</Link></MaybeClose>)}</div></div>
     <div className="nav-drop"><button aria-haspopup="true">Categorias</button><div>{categoryList.map((c) => <MaybeClose enabled={closeMobile} key={c}><Link href={`/produtos?categoria=${encodeURIComponent(c)}`}>{c}</Link></MaybeClose>)}</div></div>
     <MaybeClose enabled={closeMobile}><Link href="/marcas">Marcas A–Z</Link></MaybeClose>
+    <MaybeClose enabled={closeMobile}><Link href="/rastreio">Rastrear pedido</Link></MaybeClose>
     <MaybeClose enabled={closeMobile}><Link href="/#sobre">Manifesto</Link></MaybeClose>
   </>;
 }

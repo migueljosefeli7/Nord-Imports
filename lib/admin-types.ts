@@ -14,6 +14,8 @@ export type AdminProduct = {
   active: boolean;
   rare: boolean;
   sought: boolean;
+  price: number | null;
+  show_price: boolean;
   created_at: string;
   product_images: AdminImage[];
 };
@@ -29,6 +31,8 @@ export type ProductDraft = {
   active: boolean;
   rare: boolean;
   sought: boolean;
+  price: string;
+  show_price: boolean;
 };
 
 export const emptyProductDraft: ProductDraft = {
@@ -42,6 +46,8 @@ export const emptyProductDraft: ProductDraft = {
   active: false,
   rare: false,
   sought: false,
+  price: "",
+  show_price: false,
 };
 
 export function slugify(value: string) {
