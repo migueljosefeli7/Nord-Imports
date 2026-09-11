@@ -29,6 +29,7 @@ export function StoreHeader() {
   const [q, setQ] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [found, setFound] = useState<Product[]>([]);
+  const [searching, setSearching] = useState(false);
   const [brandList, setBrandList] = useState(brands);
   const [categoryList, setCategoryList] = useState(categories);
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
@@ -40,7 +41,7 @@ export function StoreHeader() {
   useEffect(() => {
     if (q.trim().length < 2) return;
     const controller = new AbortController();
-    const timer = window.setTimeout(() => fetch(`/api/search?q=${encodeURIComponent(q.trim())}`, { signal: controller.signal }).then((response) => response.ok ? response.json() : []).then(setFound).catch(() => undefined), 180);
+    const timer = window.setTimeout(() => fetch(`/api/search?q=${encodeURIComponent(q.trim())}`, { signal: controller.signal }).then((response) => response.ok ? response.json() : []).then(setFound).catch(() => undefined).finally(() => setSearching(false)), 180);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [q]);
   useEffect(() => {
@@ -72,9 +73,9 @@ export function StoreHeader() {
               <div className="search-panel">
                 <div className="search-top"><BrandLogo className="search-logo" /><button className="search-close" aria-label="Fechar busca" onClick={() => { setSearchOpen(false); setQ(""); }}><X /></button></div>
                 <p className="eyebrow">ENCONTRE SUA PRÓXIMA PEÇA</p>
-                <div className="search-line"><Search aria-hidden="true" /><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Modelo, marca ou categoria" aria-label="Termo de busca" /></div>
+                <div className="search-line"><Search aria-hidden="true" /><input autoFocus value={q} onChange={(e) => { setQ(e.target.value); setSearching(e.target.value.trim().length >= 2); }} placeholder="Modelo, marca ou categoria" aria-label="Termo de busca" /></div>
                 <div className="search-results" aria-live="polite" aria-atomic="true">
-                  {q.length < 2 ? <p>Digite pelo menos 2 caracteres para começar.</p> : visibleResults.length ? visibleResults.map((p) => <Link href={`/produto/${p.slug}`} onClick={() => setSearchOpen(false)} key={p.id}><Image src={p.image} alt="" width={92} height={76} unoptimized={p.image.startsWith("http")} /><span><b>{p.name}</b><small>{p.brand} · {p.category}</small></span><ArrowUpRight /></Link>) : <div className="search-empty"><b>Nenhuma peça por aqui.</b><p>Tente buscar por Nike, Jordan, tênis ou moletom.</p></div>}
+                  {q.length < 2 ? <p>Digite pelo menos 2 caracteres para começar.</p> : searching ? <p className="search-loading">Buscando peças...</p> : visibleResults.length ? visibleResults.map((p) => <Link href={`/produto/${p.slug}`} onClick={() => setSearchOpen(false)} key={p.id}><Image src={p.image} alt="" width={92} height={76} unoptimized={p.image.startsWith("http")} /><span><b>{p.name}</b><small>{p.brand} · {p.category}</small></span><ArrowUpRight /></Link>) : <div className="search-empty"><b>Nenhuma peça por aqui.</b><p>Tente buscar por Nike, Jordan, tênis ou moletom.</p></div>}
                 </div>
               </div>
           </div>}
