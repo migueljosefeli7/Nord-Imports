@@ -1,6 +1,7 @@
 "use client";
 
 import createGlobe from "cobe";
+import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 
 const BRAZIL: [number, number] = [-27.5954, -48.548];
@@ -42,8 +43,8 @@ export function ImportGlobe() {
       glowColor: [0.07, 0.16, 0.36],
       markerElevation: 0.025,
       markers: [
-        { location: BRAZIL, size: 0.115, color: [0.15, 0.39, 0.92], id: "brasil" },
-        ...ROUTES.map((route) => ({ location: route.from, size: 0.055, id: route.id })),
+        { location: BRAZIL, size: 0.045, color: [0.15, 0.39, 0.92], id: "brasil" },
+        ...ROUTES.map((route) => ({ location: route.from, size: 0.025, id: route.id })),
       ],
       arcs: ROUTES.map((route) => ({ from: route.from, to: BRAZIL, id: `${route.id}-brasil` })),
       arcColor: [0.35, 0.58, 1],
@@ -98,7 +99,12 @@ export function ImportGlobe() {
         onPointerCancel={release}
         style={{ cursor: dragging ? "grabbing" : "grab" }}
       />
-      <div className="globe-destination"><span />BRASIL <small>DESTINO NORD</small></div>
+      {[...ROUTES.map(({ id, label }) => ({ id, label })), { id: "brasil", label: "Brasil" }].map((marker) => <span
+        className={`globe-marker-pulse ${marker.id === "brasil" ? "destination" : ""}`}
+        style={{ positionAnchor: `--cobe-${marker.id}` } as CSSProperties}
+        key={marker.id}
+        aria-hidden="true"
+      ><i /><small>{marker.label}</small></span>)}
     </div>
   );
 }

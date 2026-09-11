@@ -15,16 +15,15 @@ export default async function Home() {
   const sought = products.filter((p) => p.sought);
   const rare = products.filter((p) => p.rare);
   return <><div id="top" /><StoreHeader /><main id="conteudo" tabIndex={-1}>
-    <section className="hero">
-      <Image src="/hero-nord.png" alt="Sneaker e peças selecionadas Nord Imports" fill priority sizes="100vw" />
-      <div className="hero-shade" />
-      <div className="hero-index"><span>01</span><i /><span>DROP 09.26</span></div>
-      <div className="hero-copy">
-        <p className="eyebrow light">IMPORTADOS SELECIONADOS · ACESSO FORA DO COMUM</p>
-        <h1>VISTA O QUE<br /><span>NÃO CHEGA FÁCIL</span><br />AO BRASIL.</h1>
-        <div className="hero-bottom"><p>Peças importadas escolhidas para tirar seu estilo do comum.<br />A Nord encontra, seleciona e faz chegar até você.</p><Link href="/produtos" className="round-cta" aria-label="Explorar peças importadas"><ArrowUpRight /></Link></div>
+    <section className="global-curation global-hero" aria-labelledby="global-hero-title">
+      <div className="global-copy">
+        <div className="section-kicker light"><span>01</span><p>CURADORIA INTERNACIONAL</p></div>
+        <p className="eyebrow light">PEÇAS IMPORTADAS · ACESSO FORA DO COMUM</p>
+        <h1 id="global-hero-title">VISTA O<br /><i>EXCLUSIVO.</i></h1>
+        <p className="global-lead">O que não chega fácil ao Brasil encontra um caminho até você. Sneakers e moda de luxo importada, escolhidos a dedo para quem prefere sair do comum.</p>
+        <div className="global-actions"><Link href="/produtos" className="button">EXPLORAR IMPORTADOS <ArrowUpRight /></Link><span>CHINA · EUA · CANADÁ <b>→ BRASIL</b></span></div>
       </div>
-      <Image className="hero-mountain" src="/morro-nord.png" alt="" width={593} height={180} aria-hidden="true" />
+      <ImportGlobe />
       <a href="#categorias" className="scroll-cue">DESÇA PARA EXPLORAR <ArrowDown /></a>
     </section>
 
@@ -33,20 +32,6 @@ export default async function Home() {
       <article><ShieldCheck aria-hidden="true" /><span><b>QUALIDADE SELECIONADA</b><small>Fotos reais e garantia para defeitos de fábrica.</small></span></article>
       <article><Truck aria-hidden="true" /><span><b>TODO O BRASIL</b><small>Transporte acompanhado até a entrega.</small></span></article>
       <article><PackageCheck aria-hidden="true" /><span><b>SEM CUSTOS SURPRESA</b><small>O valor combinado contempla o caminho até sua casa.</small></span></article>
-    </section>
-
-    <section className="global-curation" aria-labelledby="global-curation-title">
-      <div className="global-copy">
-        <div className="section-kicker light"><span>02</span><p>CONEXÃO INTERNACIONAL</p></div>
-        <p className="eyebrow light">CURADORIA SEM FRONTEIRAS</p>
-        <h2 id="global-curation-title">DO MUNDO<br /><i>PARA O BRASIL.</i><br />ATÉ VOCÊ.</h2>
-        <p className="global-lead">A Nord aproxima você de peças importadas que não aparecem em qualquer vitrine. Selecionamos fora do comum e acompanhamos o caminho até a sua casa, em qualquer lugar do Brasil.</p>
-        <div className="route-list" aria-label="Rotas internacionais atendidas">
-          {[["CN", "CHINA"], ["US", "ESTADOS UNIDOS"], ["CA", "CANADÁ"]].map(([code, country]) => <div key={code}><b>{code}</b><span>{country}</span><i /><strong>BRASIL</strong></div>)}
-        </div>
-        <Link href="/produtos" className="outline-cta">EXPLORAR IMPORTADOS <ArrowUpRight /></Link>
-      </div>
-      <ImportGlobe />
     </section>
 
     <section id="categorias" className="category-strip">
