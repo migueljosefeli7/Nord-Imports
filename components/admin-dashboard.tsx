@@ -99,6 +99,7 @@ export function AdminDashboard() {
     subcategoria_id: "",
   });
   const [brandName, setBrandName] = useState("");
+  const [brandLogoFile, setBrandLogoFile] = useState<File | null>(null);
   const [categoryForm, setCategoryForm] = useState({ brand_id: "", name: "" });
   const [subcategoryForm, setSubcategoryForm] = useState({
     category_id: "",
@@ -126,7 +127,7 @@ export function AdminDashboard() {
     const supabase = supabaseBrowser();
     const [brandRes, categoryRes, subcategoryRes, productRes, settingsRes] =
       await Promise.all([
-        supabase.from("brands").select("id,name,slug").order("name"),
+        supabase.from("brands").select("id,name,slug,logo_url").order("name"),
         supabase
           .from("categories")
           .select("id,brand_id,name,slug")
@@ -329,6 +330,7 @@ export function AdminDashboard() {
           description: draft.description.trim(),
           sku: draft.sku.trim() || null,
           price: draft.price ? Number(draft.price.replace(",", ".")) : null,
+          show_price: Boolean(draft.price),
           brand_id: draft.brand_id,
           categoria_id: draft.categoria_id,
           subcategoria_id: draft.subcategoria_id,
@@ -513,12 +515,34 @@ export function AdminDashboard() {
     event.preventDefault();
     if (!brandName.trim()) return;
     await perform(async () => {
-      const result = await supabaseBrowser()
+      const supabase = supabaseBrowser();
+      const result = await supabase
         .from("brands")
-        .insert({ name: brandName.trim(), slug: slugify(brandName) });
+        .insert({ name: brandName.trim(), slug: slugify(brandName) })
+        .select("id")
+        .single();
       if (result.error) throw result.error;
+      if (brandLogoFile) await uploadBrandLogo(result.data.id, brandLogoFile);
       setBrandName("");
+      setBrandLogoFile(null);
     }, "Marca criada.");
+  }
+
+  async function uploadBrandLogo(brandId: string, file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) throw new Error("O logo precisa ser JPG, PNG ou WebP e ter no máximo 5 MB.");
+    const supabase = supabaseBrowser();
+    const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const path = `brands/${brandId}-${crypto.randomUUID()}.${extension}`;
+    const upload = await supabase.storage.from("products").upload(path, file, { contentType: file.type, upsert: true });
+    if (upload.error) throw upload.error;
+    const { data } = supabase.storage.from("products").getPublicUrl(path);
+    const update = await supabase.from("brands").update({ logo_url: data.publicUrl }).eq("id", brandId);
+    if (update.error) throw update.error;
+  }
+
+  async function replaceBrandLogo(brandId: string, file?: File) {
+    if (!file) return;
+    await perform(() => uploadBrandLogo(brandId, file), "Logo da marca atualizado.");
   }
   async function createCategory(event: React.FormEvent) {
     event.preventDefault();
@@ -1038,6 +1062,11 @@ export function AdminDashboard() {
                     required
                   />
                 </label>
+                <label>
+                  Logo da marca
+                  <input className="admin-input brand-file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setBrandLogoFile(event.target.files?.[0] || null)} />
+                  <small>PNG com fundo transparente funciona melhor.</small>
+                </label>
                 <button className="button primary">
                   <Plus /> ADICIONAR MARCA
                 </button>
@@ -1127,7 +1156,7 @@ export function AdminDashboard() {
               {brands.map((brand) => (
                 <details key={brand.id}>
                   <summary>
-                    <span>{brand.name}</span>
+                    <span className="taxonomy-brand-name">{brand.logo_url ? <Image src={brand.logo_url} alt="" width={48} height={32} unoptimized /> : null}{brand.name}</span>
                     <small>
                       {
                         categories.filter((item) => item.brand_id === brand.id)
@@ -1135,6 +1164,11 @@ export function AdminDashboard() {
                       }{" "}
                       categorias
                     </small>
+                    <label className="brand-logo-upload" title={`Adicionar ou trocar logo de ${brand.name}`}>
+                      <ImagePlus aria-hidden="true" />
+                      <span className="sr-only">Adicionar ou trocar logo de {brand.name}</span>
+                      <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => replaceBrandLogo(brand.id, event.target.files?.[0])} />
+                    </label>
                     <button
                       aria-label={`Excluir marca ${brand.name}`}
                       onClick={(event) => {
@@ -1331,17 +1365,7 @@ export function AdminDashboard() {
                 />
               </label>
             </div>
-            <label className="price-toggle">
-              <input
-                type="checkbox"
-                checked={draft.show_price}
-                onChange={(e) =>
-                  setDraft({ ...draft, show_price: e.target.checked })
-                }
-                disabled={!draft.price}
-              />
-              Exibir preço no catálogo e na página do produto
-            </label>
+            <p className="price-toggle">Ao preencher o preço, ele aparece automaticamente no catálogo e na página do produto. Deixe vazio para exibir “Sob consulta”.</p>
             <div className="form-row taxonomy-selects">
               <label>
                 Marca

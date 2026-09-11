@@ -9,7 +9,7 @@ import { getStoreSnapshot } from "@/lib/store-repository";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { products, brands, categories, settings } = await getStoreSnapshot();
+  const { products, brandDetails, categories, settings } = await getStoreSnapshot();
   const newest = products.slice(0, 10);
   const sought = products.filter((p) => p.sought);
   const rare = products.filter((p) => p.rare);
@@ -57,7 +57,7 @@ export default async function Home() {
       <div className="rare-list">{rare.map((p, i) => <Link href={`/produto/${p.slug}`} key={p.id}><span>0{i + 1}</span><b>{p.name}</b><small>{p.brand} · {p.subcategory}</small><ArrowRight /></Link>)}</div>
     </section>
 
-    <section className="brand-marquee" aria-label="Marcas disponíveis"><p>{brands.join("  ✦  ")} ✦ {brands.join("  ✦  ")}</p></section>
+    <section className="selected-brands" aria-labelledby="selected-brands-title"><div className="section-kicker light"><span>05</span><p>MARCAS SELECIONADAS</p></div><div className="selected-brands-head"><h2 id="selected-brands-title">NOMES QUE<br /><i>DEFINEM ESTILO.</i></h2><Link href="/marcas">VER TODAS <ArrowRight /></Link></div><div className="selected-brand-grid">{brandDetails.slice(0, 8).map((brand) => <Link href={`/marca/${brand.slug}`} key={brand.id}>{brand.logoUrl ? <Image src={brand.logoUrl} alt={`Logo ${brand.name}`} fill sizes="(max-width: 640px) 50vw, 25vw" unoptimized /> : <strong>{brand.name}</strong>}<span>{brand.name}</span></Link>)}</div></section>
 
     <section id="sobre" className="about">
       <div className="about-blue"><Image src="/morro-nord.png" alt="Elemento gráfico da identidade Nord Imports" width={593} height={180} /><p>SANTA CATARINA<br />BRASIL</p></div>

@@ -1,4 +1,4 @@
-export type AdminBrand = { id: string; name: string; slug: string };
+export type AdminBrand = { id: string; name: string; slug: string; logo_url: string | null };
 export type AdminCategory = { id: string; brand_id: string; name: string; slug: string };
 export type AdminSubcategory = { id: string; category_id: string; name: string; slug: string };
 export type AdminImage = { id: string; url: string; storage_path: string | null; sort_order: number; is_cover: boolean };

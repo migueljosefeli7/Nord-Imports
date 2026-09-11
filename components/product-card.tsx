@@ -12,6 +12,6 @@ export function ProductCard({ product, index = 0, featured = false }: { product:
       {product.rare && <span className="rare-tag">RARO</span>}
       <span className="view-tag">VER PEÇA <ArrowUpRight size={16} /></span>
     </Link>
-    <div className="product-info"><div><p>{product.brand} · {product.subcategory}</p><h3><Link href={`/produto/${product.slug}`}>{product.name}</Link></h3></div><span>{price || "Sob consulta"}</span></div>
+    <div className="product-info"><div><p>{product.brandLogo && <Image src={product.brandLogo} alt="" width={28} height={28} unoptimized />}<span>{product.brand} · {product.subcategory}</span></p><h3><Link href={`/produto/${product.slug}`}>{product.name}</Link></h3></div><strong>{price || "Sob consulta"}</strong></div>
   </article>;
 }

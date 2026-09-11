@@ -7,8 +7,9 @@ export const metadata: Metadata = {
   title: { default: "Nord Imports — Sneakers & Streetwear", template: "%s | Nord Imports" },
   description: "Curadoria de sneakers e moda de luxo selecionados a dedo, com atendimento personalizado e entrega para todo o Brasil.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/nordlogo1.png",
+    shortcut: "/nordlogo1.png",
+    apple: "/nordlogo1.png",
   },
 };
 

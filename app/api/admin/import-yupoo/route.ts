@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_ALBUMS = 30;
-const MAX_IMAGES = 16;
+const MAX_IMAGES = 80;
 
 export async function POST(request: Request) {
   const { url, key } = getSupabaseBrowserConfig();
@@ -99,9 +99,22 @@ function extractAlbumUrls(html: string, base: URL) {
   return [...new Set(urls.filter((value) => { try { return safeYupooUrl(value).href; } catch { return false; } }))];
 }
 function extractImageUrls(html: string) {
-  const normalized = html.replace(/\\u002F/g, "/").replace(/\\\//g, "/");
+  const normalized = html.replace(/\\u002F/gi, "/").replace(/\\\//g, "/").replace(/&amp;/g, "&");
   const meta = extractMeta(normalized, "og:image");
-  const found = [...normalized.matchAll(/https?:\/\/[^"'<>\s\\]+/gi)].map((match) => decodeHtml(match[0]).replace(/[),;]+$/, ""));
-  return [...new Set([meta, ...found].filter((value) => { try { const url = new URL(value); return isSafeImageHost(url.hostname) && /\.(jpe?g|png|webp)(\?|$)/i.test(url.pathname + url.search); } catch { return false; } }))];
+  const absolute = [...normalized.matchAll(/https?:\/\/[^"'<>\s\\]+/gi)].map((match) => match[0]);
+  const protocolRelative = [...normalized.matchAll(/(?:src|data-src|data-origin-src|data-photo-url)=["'](\/\/[^"']+)["']/gi)].map((match) => `https:${match[1]}`);
+  const candidates = [meta, ...protocolRelative, ...absolute].map((value) => decodeHtml(value).replace(/[),;]+$/, "")).filter(Boolean);
+  const images = candidates.flatMap((value) => {
+    try {
+      const url = new URL(value);
+      if (!isSafeImageHost(url.hostname)) return [];
+      if (!/\.(jpe?g|png|webp)$/i.test(url.pathname)) return [];
+      url.search = "";
+      url.hash = "";
+      url.pathname = url.pathname.replace(/\/(small|medium|thumb|square)\//i, "/big/");
+      return [url.href];
+    } catch { return []; }
+  });
+  return [...new Set(images)];
 }
 function isSafeImageHost(hostname: string) { return hostname === "yupoo.com" || hostname.endsWith(".yupoo.com"); }
