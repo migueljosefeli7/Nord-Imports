@@ -8,7 +8,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "node supabase/setup-owner.mjs",
     "start": "next start",
     "lint": "eslint . --ignore-pattern .next --ignore-pattern dist"
   },
