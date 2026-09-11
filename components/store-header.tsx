@@ -6,7 +6,6 @@ import { ArrowUpRight, Menu, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/brand-logo";
-import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { brands, categories, settings } from "@/lib/data";
 import type { Product } from "@/lib/data";
@@ -28,6 +27,7 @@ function NavLinks({ brandList, categoryList, closeMobile = false }: { brandList:
 
 export function StoreHeader() {
   const [q, setQ] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [found, setFound] = useState<Product[]>([]);
   const [brandList, setBrandList] = useState(brands);
   const [categoryList, setCategoryList] = useState(categories);
@@ -43,6 +43,13 @@ export function StoreHeader() {
     const timer = window.setTimeout(() => fetch(`/api/search?q=${encodeURIComponent(q.trim())}`, { signal: controller.signal }).then((response) => response.ok ? response.json() : []).then(setFound).catch(() => undefined), 180);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [q]);
+  useEffect(() => {
+    if (!searchOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSearchOpen(false); };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", close);
+    return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", close); };
+  }, [searchOpen]);
   return <>
     <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
     <div className="announcement"><span>NORD IMPORTS®</span><p>Curadoria independente · Envios para todo o Brasil</p><span>EST. 2026</span></div>
@@ -60,20 +67,17 @@ export function StoreHeader() {
         <Link href="/" aria-label="Nord Imports — início"><BrandLogo className="header-logo" /></Link>
         <nav className="main-nav" aria-label="Navegação principal"><NavLinks brandList={brandList} categoryList={categoryList} /></nav>
         <div className="nav-actions">
-          <Dialog onOpenChange={(open) => { if (!open) setQ(""); }}>
-            <DialogTrigger asChild><button className="icon-button search-trigger" aria-label="Buscar produtos"><Search /><span>Buscar</span></button></DialogTrigger>
-            <DialogContent className="search-overlay" showCloseButton={false}>
-              <DialogTitle className="sr-only">Buscar produtos</DialogTitle>
+          <button className="icon-button search-trigger" aria-label="Buscar produtos" aria-expanded={searchOpen} onClick={() => setSearchOpen(true)}><Search /><span>Buscar</span></button>
+          {searchOpen && <div className="search-overlay" role="dialog" aria-modal="true" aria-label="Buscar produtos">
               <div className="search-panel">
-                <div className="search-top"><BrandLogo className="search-logo" /><DialogClose asChild><button className="search-close" aria-label="Fechar busca"><X /></button></DialogClose></div>
+                <div className="search-top"><BrandLogo className="search-logo" /><button className="search-close" aria-label="Fechar busca" onClick={() => { setSearchOpen(false); setQ(""); }}><X /></button></div>
                 <p className="eyebrow">ENCONTRE SUA PRÓXIMA PEÇA</p>
                 <div className="search-line"><Search aria-hidden="true" /><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Modelo, marca ou categoria" aria-label="Termo de busca" /></div>
                 <div className="search-results" aria-live="polite" aria-atomic="true">
-                  {q.length < 2 ? <p>Digite pelo menos 2 caracteres para começar.</p> : visibleResults.length ? visibleResults.map((p) => <DialogClose asChild key={p.id}><Link href={`/produto/${p.slug}`}><Image src={p.image} alt="" width={92} height={76} unoptimized={p.image.startsWith("http")} /><span><b>{p.name}</b><small>{p.brand} · {p.category}</small></span><ArrowUpRight /></Link></DialogClose>) : <div className="search-empty"><b>Nenhuma peça por aqui.</b><p>Tente buscar por Nike, Jordan, tênis ou moletom.</p></div>}
+                  {q.length < 2 ? <p>Digite pelo menos 2 caracteres para começar.</p> : visibleResults.length ? visibleResults.map((p) => <Link href={`/produto/${p.slug}`} onClick={() => setSearchOpen(false)} key={p.id}><Image src={p.image} alt="" width={92} height={76} unoptimized={p.image.startsWith("http")} /><span><b>{p.name}</b><small>{p.brand} · {p.category}</small></span><ArrowUpRight /></Link>) : <div className="search-empty"><b>Nenhuma peça por aqui.</b><p>Tente buscar por Nike, Jordan, tênis ou moletom.</p></div>}
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
+          </div>}
           <a className="wa-small" target="_blank" rel="noreferrer" href={`https://wa.me/${whatsapp}`}>Atendimento <ArrowUpRight size={16} /></a>
         </div>
       </div>
