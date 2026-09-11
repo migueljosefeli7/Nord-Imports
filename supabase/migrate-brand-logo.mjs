@@ -6,7 +6,9 @@ if (!connectionString) {
   process.exit(0);
 }
 
-const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
+const databaseUrl = new URL(connectionString);
+databaseUrl.searchParams.delete("sslmode");
+const client = new pg.Client({ connectionString: databaseUrl.toString(), ssl: { rejectUnauthorized: false } });
 await client.connect();
 await client.query("alter table public.brands add column if not exists logo_url text");
 await client.end();
