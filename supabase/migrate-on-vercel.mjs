@@ -9,7 +9,11 @@ if (!connectionString) {
   process.exit(0);
 }
 
-const client = new pg.Client({ connectionString });
+const databaseUrl = new URL(connectionString);
+databaseUrl.searchParams.delete("sslmode");
+databaseUrl.searchParams.delete("uselibpqcompat");
+const ca = await readFile(new URL("./prod-ca-2021.crt", import.meta.url), "utf8");
+const client = new pg.Client({ connectionString: databaseUrl.toString(), ssl: { rejectUnauthorized: true, ca } });
 
 try {
   await client.connect();
