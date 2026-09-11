@@ -6,7 +6,7 @@ import { useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { supabaseBrowser } from "@/lib/supabase";
 
-export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+export function AuthForm({ mode, returnTo = "/admin" }: { mode: "login" | "signup"; returnTo?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -18,9 +18,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     e.preventDefault(); setMessage(""); setLoading(true);
     try {
       const s = supabaseBrowser();
-      const { error } = isLogin ? await s.auth.signInWithPassword({ email, password }) : await s.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/auth/callback` } });
+      const callback = `${location.origin}/auth/callback?next=${encodeURIComponent(returnTo)}`;
+      const { data, error } = isLogin ? await s.auth.signInWithPassword({ email, password }) : await s.auth.signUp({ email, password, options: { emailRedirectTo: callback } });
       if (error) throw error;
-      location.href = isLogin ? "/admin" : "/auth/sucesso";
+      location.href = isLogin || data.session ? returnTo : "/auth/sucesso";
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Não foi possível continuar. Verifique os dados e tente novamente."); setLoading(false);
     }

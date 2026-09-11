@@ -19,8 +19,8 @@ export default async function Home() {
       <div className="hero-shade" />
       <div className="hero-index"><span>01</span><i /><span>DROP 09.26</span></div>
       <div className="hero-copy">
-        <p className="eyebrow light">CURADORIA NORD · SÃO PAULO</p>
-        <h1>DO NORTE<br /><span>PARA O</span><br />SEU MUNDO.</h1>
+        <p className="eyebrow light">CURADORIA NORD · SANTA CATARINA</p>
+        <h1>PEÇAS QUE<br /><span>MARCAM</span><br />PRESENÇA.</h1>
         <div className="hero-bottom"><p>Streetwear e sneakers importados,<br />escolhidos por quem vive a cultura.</p><Link href="/produtos" className="round-cta" aria-label="Explorar coleção"><ArrowUpRight /></Link></div>
       </div>
       <Image className="hero-mountain" src="/morro-nord.png" alt="" width={593} height={180} aria-hidden="true" />
@@ -29,13 +29,13 @@ export default async function Home() {
 
     <section id="categorias" className="category-strip">
       <div className="section-kicker"><span>01</span><p>CATEGORIAS</p></div>
-      <div className="category-intro"><p>ESCOLHA SEU TERRENO</p><h2>Onde seu estilo<br /><i>ganha altitude.</i></h2></div>
+      <div className="category-intro"><p>ESCOLHA SUA CATEGORIA</p><h2>Encontre a peça<br /><i>que combina com você.</i></h2></div>
       <div className="category-grid">{categories.map((c, i) => <Link href={`/produtos?categoria=${encodeURIComponent(c)}`} key={c}><span>0{i + 1}</span><h3>{c}</h3><small>{products.filter((p) => p.category === c).length} PEÇAS</small><ArrowUpRight /></Link>)}<Link href="/produtos"><span>0{categories.length + 1}</span><h3>Ver tudo</h3><small>CATÁLOGO COMPLETO</small><ArrowUpRight /></Link></div>
     </section>
 
     <section className="products-section">
-      <div className="section-kicker"><span>02</span><p>NOVOS NO NORTE</p></div>
-      <div className="section-title-row"><div><h2>Últimos<br /><i>drops.</i></h2><p>Peças que acabaram de atravessar a fronteira.</p></div><Link href="/produtos">VER TODAS <ArrowRight /></Link></div>
+      <div className="section-kicker"><span>02</span><p>NOVOS NA NORD</p></div>
+      <div className="section-title-row"><div><h2>Últimos<br /><i>drops.</i></h2><p>Peças recém-selecionadas para a curadoria.</p></div><Link href="/produtos">VER TODAS <ArrowRight /></Link></div>
       <div className="products-grid">{newest.slice(0, 6).map((p, i) => <ProductCard product={p} index={i} key={p.id} featured={i === 0} />)}</div>
     </section>
 
@@ -45,7 +45,7 @@ export default async function Home() {
     </section>
 
     <section className="rare">
-      <div className="section-kicker"><span>04</span><p>FORA DO MAPA</p></div>
+      <div className="section-kicker"><span>04</span><p>EDIÇÕES ESPECIAIS</p></div>
       <div className="section-title-row"><div><h2>Achados<br /><i>raros.</i></h2><p>O incomum, encontrado.</p></div></div>
       <div className="rare-list">{rare.map((p, i) => <Link href={`/produto/${p.slug}`} key={p.id}><span>0{i + 1}</span><b>{p.name}</b><small>{p.brand} · {p.subcategory}</small><ArrowRight /></Link>)}</div>
     </section>
@@ -53,8 +53,8 @@ export default async function Home() {
     <section className="brand-marquee" aria-label="Marcas disponíveis"><p>{brands.join("  ✦  ")} ✦ {brands.join("  ✦  ")}</p></section>
 
     <section id="sobre" className="about">
-      <div className="about-blue"><Image src="/morro-nord.png" alt="Símbolo de montanha da Nord Imports" width={593} height={180} /><p>N 23°32&apos;<br />W 46°38&apos;</p></div>
-      <div className="about-copy"><div className="section-kicker"><span>05</span><p>MANIFESTO</p></div><h2>NÃO SEGUIMOS<br />O FLUXO.<br /><i>BUSCAMOS O ALTO.</i></h2><p>A Nord nasceu da busca por peças que não chegam fácil. Selecionamos sneakers e streetwear com identidade, procedência e história — para quem entende que vestir também é escolher o que representar.</p><Link href="/produtos" className="outline-cta dark">CONHEÇA A CURADORIA <ArrowUpRight /></Link></div>
+      <div className="about-blue"><Image src="/morro-nord.png" alt="Elemento gráfico da identidade Nord Imports" width={593} height={180} /><p>SANTA CATARINA<br />BRASIL</p></div>
+      <div className="about-copy"><div className="section-kicker"><span>05</span><p>MANIFESTO</p></div><h2>NÃO SEGUIMOS<br />O ÓBVIO.<br /><i>ESCOLHEMOS IDENTIDADE.</i></h2><p>De Santa Catarina, a Nord seleciona sneakers e streetwear importados com identidade e história — para quem entende que vestir também é escolher o que representar.</p><Link href="/produtos" className="outline-cta dark">CONHEÇA A CURADORIA <ArrowUpRight /></Link></div>
     </section>
   </main><StoreFooter /></>;
 }

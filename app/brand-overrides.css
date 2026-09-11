@@ -1,0 +1,6 @@
+.about-blue::before{content:"NORD IMPORTS / SANTA CATARINA / 2026"}
+
+@media(max-width:640px){
+  .admin-main>header{gap:16px;flex-wrap:wrap}
+  .admin-main>header .button{display:flex;min-height:46px}
+}

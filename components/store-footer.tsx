@@ -15,7 +15,7 @@ export function StoreFooter() {
     <Image className="footer-mountain" src="/morro-nord.png" alt="" width={593} height={180} aria-hidden="true" />
     <div className="footer-statement"><p>VISTA O QUE<br />TE <i>MOVE.</i></p><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">FALAR COM A NORD <ArrowUpRight /></a></div>
     <div className="footer-top">
-      <div><BrandLogo className="footer-logo" /><p>Importados selecionados.<br />Do norte para qualquer lugar.</p></div>
+      <div><BrandLogo className="footer-logo" /><p>Importados selecionados.<br />Curadoria feita em Santa Catarina.</p></div>
       <div><h4>Navegue</h4><Link href="/produtos">Todos os produtos</Link><Link href="/marcas">Marcas</Link><Link href="/#sobre">Manifesto</Link></div>
       <div><h4>Em destaque</h4>{brandList.slice(0, 5).map((b) => <Link href={`/marca/${b.toLowerCase().replaceAll(" ", "-")}`} key={b}>{b}</Link>)}</div>
       <div><h4>Conecte-se</h4><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">WhatsApp <ArrowUpRight size={15} /></a><span>Instagram · em breve</span></div>

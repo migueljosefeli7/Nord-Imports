@@ -17,7 +17,7 @@ type AiSuggestion = { id: string; name: string; sku: string | null; description:
 
 export function AdminDashboard() {
   const router = useRouter();
-  const [status, setStatus] = useState<"loading" | "setup" | "denied" | "ready">("loading");
+  const [status, setStatus] = useState<"loading" | "setup" | "denied" | "error" | "ready">("loading");
   const [tab, setTab] = useState("Dashboard");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
@@ -79,7 +79,7 @@ export function AdminDashboard() {
         setStatus("ready");
       } catch (error) {
         notify(error instanceof Error ? error.message : "Não foi possível carregar o painel.", "error");
-        setStatus("setup");
+        setStatus("error");
       }
     }
     void boot();
@@ -115,12 +115,15 @@ export function AdminDashboard() {
   async function saveProduct(event: React.FormEvent) {
     event.preventDefault();
     if (!draft.name.trim() || !draft.slug || !draft.brand_id || !draft.categoria_id || !draft.subcategoria_id) { notify("Preencha nome, slug, marca, categoria e subcategoria.", "error"); return; }
+    const invalidFile = files.find((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 8 * 1024 * 1024);
+    if (invalidFile) { notify(`A imagem “${invalidFile.name}” precisa ser JPG, PNG ou WebP e ter no máximo 8 MB.`, "error"); return; }
     await perform(async () => {
       const supabase = supabaseBrowser();
       const payload = { ...draft, name: draft.name.trim(), slug: slugify(draft.slug), description: draft.description.trim(), sku: draft.sku.trim() || null, brand_id: draft.brand_id, categoria_id: draft.categoria_id, subcategoria_id: draft.subcategoria_id, updated_at: new Date().toISOString() };
       const result = editingId ? await supabase.from("products").update(payload).eq("id", editingId).select("id").single() : await supabase.from("products").insert(payload).select("id").single();
       if (result.error) throw result.error;
       const productId = result.data.id as string;
+      if (!editingId) setEditingId(productId);
       if (files.length) {
         const existing = products.find((product) => product.id === productId)?.product_images.length || 0;
         for (let index = 0; index < files.length; index += 1) {
@@ -262,6 +265,7 @@ export function AdminDashboard() {
 
   if (status === "loading") return <AdminState icon={<LoaderCircle className="spin" />} title="Carregando painel" text="Validando sua sessão e buscando os dados da loja." />;
   if (status === "setup") return <AdminState icon={<Settings />} title="Conecte o Supabase" text="Cadastre NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel e execute o arquivo supabase/schema.sql no SQL Editor do seu projeto." />;
+  if (status === "error") return <AdminState icon={<RefreshCw />} title="Não foi possível carregar o painel" text="A conexão existe, mas o banco respondeu com erro. Confira se o schema mais recente foi executado e tente novamente." action={<button className="button primary" onClick={() => location.reload()}>TENTAR NOVAMENTE</button>} />;
   if (status === "denied") return <AdminState icon={<EyeOff />} title="Acesso ainda não liberado" text="Sua conta existe, mas não possui o papel admin. Adicione seu usuário à tabela user_roles com o papel admin." action={<button className="button primary" onClick={signOut}>SAIR E USAR OUTRA CONTA</button>} />;
 
   return <div className="admin-shell" aria-busy={busy}>
