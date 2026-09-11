@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
+import { getSupabaseBrowserConfig } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { url: supabaseUrl, key: supabaseKey } = getSupabaseBrowserConfig();
   const apiKey = process.env.OPENAI_API_KEY;
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!supabaseUrl || !supabaseKey || !token) return NextResponse.json({ error: "Sessão ou Supabase não configurados." }, { status: 401 });

@@ -1,12 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { brands as fallbackBrands, categories as fallbackCategories, products as fallbackProducts, settings as fallbackSettings, type Product } from "@/lib/data";
+import { getSupabaseBrowserConfig } from "@/lib/supabase";
 
 export type StoreSnapshot = { products: Product[]; brands: string[]; categories: string[]; settings: { whatsapp: string; message: string }; configured: boolean; error?: string };
 type RawProduct = { id: string; slug: string; name: string; description: string | null; brand_id: string | null; categoria_id: string | null; subcategoria_id: string | null; active: boolean; rare: boolean | null; sought: boolean | null; created_at: string; product_images: { url: string; sort_order: number; is_cover: boolean }[] };
 
 export async function getStoreSnapshot(): Promise<StoreSnapshot> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { url, key } = getSupabaseBrowserConfig();
   if (!url || !key) return process.env.NODE_ENV === "development" ? fallback() : unavailable("Supabase não configurado.");
   try {
     const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });

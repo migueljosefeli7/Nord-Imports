@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSupabaseBrowserConfig } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/admin-types";
 
@@ -9,8 +10,7 @@ const MAX_ALBUMS = 30;
 const MAX_IMAGES = 16;
 
 export async function POST(request: Request) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { url, key } = getSupabaseBrowserConfig();
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!url || !key) return NextResponse.json({ error: "Supabase não configurado." }, { status: 503 });
   if (!token) return NextResponse.json({ error: "Sessão administrativa inválida." }, { status: 401 });

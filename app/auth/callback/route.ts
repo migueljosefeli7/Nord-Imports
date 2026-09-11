@@ -1,12 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseBrowserConfig } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = safeNext(requestUrl.searchParams.get("next"));
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { url, key } = getSupabaseBrowserConfig();
   if (!code || !url || !key) return NextResponse.redirect(new URL("/auth/erro", request.url));
 
   const response = NextResponse.redirect(new URL(next, request.url));
