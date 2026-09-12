@@ -350,9 +350,12 @@ export function AdminDashboard() {
         if (result.error) throw result.error;
         const productId = result.data.id as string;
         if (!editingId) setEditingId(productId);
-        const clearCollaborators = await supabase.from("product_brands").delete().eq("product_id", productId);
-        if (clearCollaborators.error) throw clearCollaborators.error;
         const collaboratorIds = draft.collaborator_brand_ids.filter((brandId) => brandId !== draft.brand_id);
+        const hadCollaborators = Boolean(products.find((item) => item.id === productId)?.collaborator_brand_ids.length);
+        if (collaboratorIds.length || hadCollaborators) {
+          const clearCollaborators = await supabase.from("product_brands").delete().eq("product_id", productId);
+          if (clearCollaborators.error) throw clearCollaborators.error;
+        }
         if (collaboratorIds.length) {
           const collaborators = await supabase.from("product_brands").insert(collaboratorIds.map((brandId) => ({ product_id: productId, brand_id: brandId })));
           if (collaborators.error) throw collaborators.error;

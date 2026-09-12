@@ -3,6 +3,7 @@ import { getSupabaseBrowserConfig } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/admin-types";
 import { createHash } from "node:crypto";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -64,10 +65,14 @@ export async function POST(request: Request) {
         const imageUrls = extractImageUrls(html);
         let savedImages = 0;
         const savedHashes = new Set<string>();
+        const savedSourceKeys = new Set<string>();
+        const savedFingerprints: Uint8Array[] = [];
         for (let index = 0; index < imageUrls.length; index += 1) {
           try {
             const imageUrl = new URL(imageUrls[index]);
             if (!isSafeImageHost(imageUrl.hostname)) continue;
+            const sourceKey = imageSourceKey(imageUrl);
+            if (savedSourceKeys.has(sourceKey)) continue;
             const imageResponse = await fetch(imageUrl, { headers: { "User-Agent": "Mozilla/5.0", Referer: albumUrl }, signal: AbortSignal.timeout(15000) });
             if (!imageResponse.ok) continue;
             const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
@@ -78,7 +83,11 @@ export async function POST(request: Request) {
             if (!dimensions || Math.min(dimensions.width, dimensions.height) < 700 || dimensions.width * dimensions.height < 600_000) continue;
             const hash = createHash("sha256").update(bytes).digest("hex");
             if (savedHashes.has(hash)) continue;
+            const fingerprint = await imageFingerprint(bytes);
+            if (savedFingerprints.some((saved) => visuallyEqual(saved, fingerprint))) continue;
+            savedSourceKeys.add(sourceKey);
             savedHashes.add(hash);
+            savedFingerprints.push(fingerprint);
             const extension = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
             const path = `${product.data.id}/yupoo-${albumId}-${hash.slice(0, 16)}.${extension}`;
             const upload = await supabase.storage.from("products").upload(path, bytes, { contentType, upsert: true });
@@ -147,6 +156,31 @@ function extractImageUrls(html: string) {
   return [...new Set(images)];
 }
 function isSafeImageHost(hostname: string) { return hostname === "yupoo.com" || hostname.endsWith(".yupoo.com"); }
+
+function imageSourceKey(url: URL) {
+  return url.pathname
+    .toLowerCase()
+    .replace(/\/(small|medium|thumb|thumbnail|square|big|large|original)\//g, "/")
+    .replace(/[-_](small|medium|thumb|thumbnail|big|large|original)(?=\.[a-z]+$)/, "");
+}
+
+async function imageFingerprint(bytes: Uint8Array) {
+  const normalized = await sharp(bytes)
+    .rotate()
+    .resize(16, 16, { fit: "fill" })
+    .greyscale()
+    .normalize()
+    .raw()
+    .toBuffer();
+  return new Uint8Array(normalized);
+}
+
+function visuallyEqual(first: Uint8Array, second: Uint8Array) {
+  if (first.length !== second.length) return false;
+  let difference = 0;
+  for (let index = 0; index < first.length; index += 1) difference += Math.abs(first[index] - second[index]);
+  return difference / first.length <= 5.5;
+}
 
 function readImageSize(bytes: Uint8Array, contentType: string): { width: number; height: number } | null {
   if (contentType.includes("png") && bytes.length > 24 && bytes[0] === 0x89 && bytes[1] === 0x50) {
