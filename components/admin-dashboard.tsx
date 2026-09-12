@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   FolderTree,
+  GripVertical,
   ImagePlus,
   Layers,
   LoaderCircle,
@@ -22,6 +23,7 @@ import {
   Tags,
   Trash2,
   Upload,
+  ExternalLink,
   X,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
@@ -81,6 +83,7 @@ export function AdminDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ProductDraft>(emptyProductDraft);
   const [files, setFiles] = useState<File[]>([]);
+  const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkTaxonomy, setBulkTaxonomy] = useState({
     brand_id: "",
@@ -126,7 +129,7 @@ export function AdminDashboard() {
         supabase
           .from("products")
           .select(
-            "id,name,slug,description,sku,price,show_price,brand_id,categoria_id,subcategoria_id,active,rare,sought,created_at,product_images(id,url,storage_path,sort_order,is_cover)",
+            "id,name,slug,description,sku,price,show_price,brand_id,categoria_id,subcategoria_id,active,rare,sought,yupoo_album_url,created_at,product_images(id,url,storage_path,sort_order,is_cover)",
           )
           .order("created_at", { ascending: false }),
         supabase
@@ -419,6 +422,28 @@ export function AdminDashboard() {
         .eq("id", imageId);
       if (result.error) throw result.error;
     }, "Imagem de capa atualizada.");
+  }
+
+  async function reorderImages(productId: string, targetImageId: string) {
+    if (!draggedImageId || draggedImageId === targetImageId) return;
+    const product = products.find((item) => item.id === productId);
+    if (!product) return;
+    const reordered = [...product.product_images];
+    const from = reordered.findIndex((image) => image.id === draggedImageId);
+    const to = reordered.findIndex((image) => image.id === targetImageId);
+    if (from < 0 || to < 0) return;
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    const normalized = reordered.map((image, index) => ({ ...image, sort_order: index, is_cover: index === 0 }));
+    setDraggedImageId(null);
+    setProducts((current) => current.map((item) => item.id === productId ? { ...item, product_images: normalized } : item));
+    await perform(async () => {
+      const supabase = supabaseBrowser();
+      for (const image of normalized) {
+        const result = await supabase.from("product_images").update({ sort_order: image.sort_order, is_cover: image.is_cover }).eq("id", image.id).eq("product_id", productId);
+        if (result.error) throw result.error;
+      }
+    }, "Ordem das fotos atualizada.");
   }
 
   async function changeVisibility(active: boolean) {
@@ -1239,14 +1264,17 @@ export function AdminDashboard() {
             <label>
               Descrição
               <textarea
-                className="admin-input"
-                rows={5}
+                className="admin-input product-description-editor"
+                rows={10}
                 value={draft.description}
                 onChange={(e) =>
                   setDraft({ ...draft, description: e.target.value })
                 }
+                placeholder={"Conte a história da peça em parágrafos.\n\n## Detalhes\n- Material e acabamento\n- Modelagem\n- Destaques da peça"}
               />
+              <small className="field-help">Use linhas em branco para separar parágrafos, “##” para subtítulos e “-” para listas. A formatação aparecerá pronta na página do produto.</small>
             </label>
+            {editingId && products.find((product) => product.id === editingId)?.yupoo_album_url ? <div className="admin-source-link"><span><b>ORIGEM DO PRODUTO</b><small>Visível somente no painel administrativo</small></span><a href={products.find((product) => product.id === editingId)!.yupoo_album_url!} target="_blank" rel="noreferrer">ABRIR ÁLBUM NO YUPOO <ExternalLink /></a></div> : null}
             <div className="form-row">
               <label>
                 SKU
@@ -1376,11 +1404,12 @@ export function AdminDashboard() {
             {editingId &&
             products.find((product) => product.id === editingId)?.product_images
               .length ? (
-              <div className="image-manager">
+              <div><div className="image-manager-heading"><span><b>FOTOS DO PRODUTO</b><small>Arraste para reordenar. A primeira foto vira a capa.</small></span></div><div className="image-manager">
                 {products
                   .find((product) => product.id === editingId)!
                   .product_images.map((image) => (
-                    <div key={image.id}>
+                    <div key={image.id} className={draggedImageId === image.id ? "dragging" : ""} draggable onDragStart={() => setDraggedImageId(image.id)} onDragEnd={() => setDraggedImageId(null)} onDragOver={(event) => event.preventDefault()} onDrop={() => void reorderImages(editingId, image.id)}>
+                      <span className="image-drag-handle"><GripVertical /> ARRASTAR</span>
                       <Image
                         src={image.url}
                         alt=""
@@ -1411,7 +1440,7 @@ export function AdminDashboard() {
                       </button>
                     </div>
                   ))}
-              </div>
+              </div></div>
             ) : null}
             <label className="file-drop">
               <ImagePlus />

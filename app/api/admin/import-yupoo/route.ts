@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseBrowserConfig } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/admin-types";
+import { createHash } from "node:crypto";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
         if (product.error) throw product.error;
         const imageUrls = extractImageUrls(html);
         let savedImages = 0;
+        const savedHashes = new Set<string>();
         for (let index = 0; index < imageUrls.length; index += 1) {
           try {
             const imageUrl = new URL(imageUrls[index]);
@@ -71,15 +73,24 @@ export async function POST(request: Request) {
             const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
             if (!contentType.startsWith("image/")) continue;
             const bytes = new Uint8Array(await imageResponse.arrayBuffer());
-            if (bytes.byteLength < 8_000 || bytes.byteLength > 12_000_000) continue;
+            if (bytes.byteLength < 25_000 || bytes.byteLength > 12_000_000) continue;
+            const dimensions = readImageSize(bytes, contentType);
+            if (!dimensions || Math.min(dimensions.width, dimensions.height) < 700 || dimensions.width * dimensions.height < 600_000) continue;
+            const hash = createHash("sha256").update(bytes).digest("hex");
+            if (savedHashes.has(hash)) continue;
+            savedHashes.add(hash);
             const extension = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
-            const path = `${product.data.id}/yupoo-${albumId}-${index}.${extension}`;
+            const path = `${product.data.id}/yupoo-${albumId}-${hash.slice(0, 16)}.${extension}`;
             const upload = await supabase.storage.from("products").upload(path, bytes, { contentType, upsert: true });
             if (upload.error) continue;
             const { data: publicData } = supabase.storage.from("products").getPublicUrl(path);
             const image = await supabase.from("product_images").insert({ product_id: product.data.id, url: publicData.publicUrl, storage_path: path, sort_order: savedImages, is_cover: savedImages === 0 });
             if (!image.error) savedImages += 1;
           } catch { /* One unavailable photo must not abort the album. */ }
+        }
+        if (!savedImages) {
+          await supabase.from("products").delete().eq("id", product.data.id);
+          throw new Error("O álbum não possui fotos em alta resolução.");
         }
         created += 1;
       } catch { failures += 1; }
@@ -136,3 +147,33 @@ function extractImageUrls(html: string) {
   return [...new Set(images)];
 }
 function isSafeImageHost(hostname: string) { return hostname === "yupoo.com" || hostname.endsWith(".yupoo.com"); }
+
+function readImageSize(bytes: Uint8Array, contentType: string): { width: number; height: number } | null {
+  if (contentType.includes("png") && bytes.length > 24 && bytes[0] === 0x89 && bytes[1] === 0x50) {
+    return { width: readUint32(bytes, 16), height: readUint32(bytes, 20) };
+  }
+  if (contentType.includes("jpeg") || contentType.includes("jpg")) {
+    let offset = 2;
+    while (offset + 9 < bytes.length) {
+      if (bytes[offset] !== 0xff) { offset += 1; continue; }
+      const marker = bytes[offset + 1];
+      if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {
+        return { height: (bytes[offset + 5] << 8) | bytes[offset + 6], width: (bytes[offset + 7] << 8) | bytes[offset + 8] };
+      }
+      const length = (bytes[offset + 2] << 8) | bytes[offset + 3];
+      if (length < 2) break;
+      offset += length + 2;
+    }
+  }
+  if (contentType.includes("webp") && bytes.length > 30) {
+    const chunk = String.fromCharCode(...bytes.slice(12, 16));
+    if (chunk === "VP8X") return { width: 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16), height: 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16) };
+    if (chunk === "VP8 " && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) return { width: (bytes[26] | (bytes[27] << 8)) & 0x3fff, height: (bytes[28] | (bytes[29] << 8)) & 0x3fff };
+    if (chunk === "VP8L" && bytes[20] === 0x2f) {
+      const bits = bytes[21] | (bytes[22] << 8) | (bytes[23] << 16) | (bytes[24] << 24);
+      return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
+    }
+  }
+  return null;
+}
+function readUint32(bytes: Uint8Array, offset: number) { return ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0; }

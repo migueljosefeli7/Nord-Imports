@@ -16,6 +16,7 @@ export type AdminProduct = {
   sought: boolean;
   price: number | null;
   show_price: boolean;
+  yupoo_album_url: string | null;
   created_at: string;
   product_images: AdminImage[];
 };
