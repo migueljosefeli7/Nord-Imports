@@ -9,6 +9,7 @@ export type AdminProduct = {
   description: string;
   sku: string | null;
   brand_id: string | null;
+  collaborator_brand_ids: string[];
   categoria_id: string | null;
   subcategoria_id: string | null;
   active: boolean;
@@ -27,6 +28,7 @@ export type ProductDraft = {
   description: string;
   sku: string;
   brand_id: string;
+  collaborator_brand_ids: string[];
   categoria_id: string;
   subcategoria_id: string;
   active: boolean;
@@ -42,6 +44,7 @@ export const emptyProductDraft: ProductDraft = {
   description: "",
   sku: "",
   brand_id: "",
+  collaborator_brand_ids: [],
   categoria_id: "",
   subcategoria_id: "",
   active: false,

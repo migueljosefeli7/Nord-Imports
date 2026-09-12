@@ -12,7 +12,7 @@ export default async function Brand({ params }: { params: Promise<{ slug: string
   const { brandDetails, products } = await getStoreSnapshot();
   const brand = brandDetails.find((item) => item.slug === decodeURIComponent(slug).toLowerCase());
   if (!brand) notFound();
-  const list = products.filter((product) => product.brand === brand.name);
+  const list = products.filter((product) => (product.brands || [product.brand]).includes(brand.name));
   const categories = [...new Set(list.map((product) => product.category))];
   return <><StoreHeader /><main id="conteudo" tabIndex={-1} className="catalog"><div className="breadcrumbs"><Link href="/">Início</Link><span>/</span><Link href="/marcas">Marcas</Link><span>/</span><span>{brand.name}</span></div><p className="eyebrow">MARCA</p><h1 className="brand-title">{brand.name}</h1><div className="brand-category-links" aria-label="Categorias da marca">{categories.map((category) => <Link key={category} href={`/produtos?marca=${encodeURIComponent(brand.name)}&categoria=${encodeURIComponent(category)}`}>{category}</Link>)}</div><p className="catalog-result-row"><span>{list.length} {list.length === 1 ? "peça" : "peças"} disponíveis</span></p>{list.length ? <div className="products-grid">{list.map((product, index) => <ProductCard key={product.id} product={product} index={index} />)}</div> : <div className="catalog-empty"><h2>Nenhuma peça publicada.</h2><p>Os produtos desta marca aparecerão aqui assim que forem ativados no painel.</p></div>}</main><StoreFooter /></>;
 }

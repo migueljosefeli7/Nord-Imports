@@ -115,7 +115,7 @@ export function AdminDashboard() {
 
   const loadData = useCallback(async () => {
     const supabase = supabaseBrowser();
-    const [brandRes, categoryRes, subcategoryRes, productRes, settingsRes] =
+    const [brandRes, categoryRes, subcategoryRes, productRes, settingsRes, productBrandsRes] =
       await Promise.all([
         supabase.from("brands").select("id,name,slug,logo_url").order("name"),
         supabase
@@ -137,6 +137,7 @@ export function AdminDashboard() {
           .select("whatsapp,default_message")
           .eq("id", 1)
           .maybeSingle(),
+        supabase.from("product_brands").select("product_id,brand_id"),
       ]);
     const error =
       brandRes.error ||
@@ -148,9 +149,14 @@ export function AdminDashboard() {
     setBrands((brandRes.data || []) as AdminBrand[]);
     setCategories((categoryRes.data || []) as AdminCategory[]);
     setSubcategories((subcategoryRes.data || []) as AdminSubcategory[]);
+    const collaboratorMap = new Map<string, string[]>();
+    for (const link of productBrandsRes.data || []) {
+      collaboratorMap.set(link.product_id, [...(collaboratorMap.get(link.product_id) || []), link.brand_id]);
+    }
     setProducts(
       ((productRes.data || []) as unknown as AdminProduct[]).map((product) => ({
         ...product,
+        collaborator_brand_ids: collaboratorMap.get(product.id) || [],
         product_images: [...(product.product_images || [])].sort(
           (a, b) =>
             Number(b.is_cover) - Number(a.is_cover) ||
@@ -276,6 +282,7 @@ export function AdminDashboard() {
       price: product.price == null ? "" : String(product.price),
       show_price: product.show_price,
       brand_id: product.brand_id || "",
+      collaborator_brand_ids: product.collaborator_brand_ids || [],
       categoria_id: product.categoria_id || "",
       subcategoria_id: product.subcategoria_id || "",
       active: product.active,
@@ -314,7 +321,6 @@ export function AdminDashboard() {
       async () => {
         const supabase = supabaseBrowser();
         const payload = {
-          ...draft,
           name: draft.name.trim(),
           slug: slugify(draft.slug),
           description: draft.description.trim(),
@@ -324,6 +330,9 @@ export function AdminDashboard() {
           brand_id: draft.brand_id,
           categoria_id: draft.categoria_id,
           subcategoria_id: draft.subcategoria_id,
+          active: draft.active,
+          rare: draft.rare,
+          sought: draft.sought,
           updated_at: new Date().toISOString(),
         };
         const result = editingId
@@ -341,6 +350,13 @@ export function AdminDashboard() {
         if (result.error) throw result.error;
         const productId = result.data.id as string;
         if (!editingId) setEditingId(productId);
+        const clearCollaborators = await supabase.from("product_brands").delete().eq("product_id", productId);
+        if (clearCollaborators.error) throw clearCollaborators.error;
+        const collaboratorIds = draft.collaborator_brand_ids.filter((brandId) => brandId !== draft.brand_id);
+        if (collaboratorIds.length) {
+          const collaborators = await supabase.from("product_brands").insert(collaboratorIds.map((brandId) => ({ product_id: productId, brand_id: brandId })));
+          if (collaborators.error) throw collaborators.error;
+        }
         if (files.length) {
           const existing =
             products.find((product) => product.id === productId)?.product_images
@@ -1311,6 +1327,7 @@ export function AdminDashboard() {
                     setDraft({
                       ...draft,
                       brand_id: e.target.value,
+                      collaborator_brand_ids: draft.collaborator_brand_ids.filter((id) => id !== e.target.value),
                       categoria_id: "",
                       subcategoria_id: "",
                     })
@@ -1325,6 +1342,27 @@ export function AdminDashboard() {
                   ))}
                 </select>
               </label>
+              <fieldset className="collaboration-brands">
+                <legend>Colaboração entre marcas <small>Opcional</small></legend>
+                <p>Marque todas as outras marcas que assinam esta peça. Ela aparecerá na página e nos resultados de cada marca.</p>
+                <div>
+                  {brands.filter((item) => item.id !== draft.brand_id).map((item) => (
+                    <label key={item.id}>
+                      <input
+                        type="checkbox"
+                        checked={draft.collaborator_brand_ids.includes(item.id)}
+                        onChange={(event) => setDraft({
+                          ...draft,
+                          collaborator_brand_ids: event.target.checked
+                            ? [...draft.collaborator_brand_ids, item.id]
+                            : draft.collaborator_brand_ids.filter((id) => id !== item.id),
+                        })}
+                      />
+                      {item.name}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <label>
                 Categoria
                 <select
