@@ -105,6 +105,16 @@ export function AdminDashboard() {
     subcategoria_id: "",
   });
   const [importStatus, setImportStatus] = useState("");
+  const [importProgress, setImportProgress] = useState({
+    state: "idle" as "idle" | "running" | "done" | "error",
+    percent: 0,
+    phase: 0,
+    elapsed: 0,
+    total: 0,
+    created: 0,
+    duplicates: 0,
+    failures: 0,
+  });
 
   const notify = useCallback(
     (text: string, tone: "success" | "error" = "success") => {
@@ -642,7 +652,24 @@ export function AdminDashboard() {
       return;
     }
     setBusy(true);
-    setImportStatus("Lendo o Yupoo e preparando as imagens…");
+    setImportStatus("Validando os links e acessando os álbuns…");
+    setImportProgress({ state: "running", percent: 6, phase: 0, elapsed: 0, total: urls.length, created: 0, duplicates: 0, failures: 0 });
+    const progressTimer = window.setInterval(() => {
+      setImportProgress((current) => {
+        if (current.state !== "running") return current;
+        const elapsed = current.elapsed + 1;
+        const percent = Math.min(92, current.percent + (current.percent < 45 ? 4 : current.percent < 75 ? 2 : 1));
+        const phase = percent >= 76 ? 3 : percent >= 50 ? 2 : percent >= 24 ? 1 : 0;
+        const messages = [
+          "Validando os links e acessando os álbuns…",
+          "Lendo títulos, fotos e vídeos disponíveis…",
+          "Filtrando duplicadas e arquivos de baixa qualidade…",
+          "Salvando os produtos e a mídia na Nord…",
+        ];
+        setImportStatus(messages[phase]);
+        return { ...current, elapsed, percent, phase };
+      });
+    }, 1000);
     try {
       const {
         data: { session },
@@ -660,16 +687,19 @@ export function AdminDashboard() {
       setImportStatus(
         `${result.created} novos · ${result.duplicates} existentes · ${result.failures} falhas`,
       );
+      setImportProgress((current) => ({ ...current, state: "done", percent: 100, phase: 4, total: result.total, created: result.created, duplicates: result.duplicates, failures: result.failures }));
       setImportForm((current) => ({ ...current, urls: "" }));
       await loadData();
       notify("Importação concluída.");
     } catch (error) {
-      setImportStatus("");
+      setImportStatus(error instanceof Error ? error.message : "Falha na importação.");
+      setImportProgress((current) => ({ ...current, state: "error" }));
       notify(
         error instanceof Error ? error.message : "Falha na importação.",
         "error",
       );
     } finally {
+      window.clearInterval(progressTimer);
       setBusy(false);
     }
   }
@@ -1010,11 +1040,27 @@ export function AdminDashboard() {
             <button className="button primary" disabled={busy}>
               <RefreshCw className={busy ? "spin" : ""} /> INICIAR IMPORTAÇÃO
             </button>
-            <div className="progress-card" aria-live="polite">
-              <span>{importStatus || "Pronto para importar o lote"}</span>
-              <div>
-                <i className={busy ? "running" : ""} />
-              </div>
+            <div className={`import-progress ${importProgress.state}`} aria-live="polite">
+              <header>
+                <span className="import-progress-icon">
+                  {importProgress.state === "done" ? <CheckCircle2 /> : importProgress.state === "error" ? <X /> : <RefreshCw className={importProgress.state === "running" ? "spin" : ""} />}
+                </span>
+                <div>
+                  <small>{importProgress.state === "running" ? `IMPORTAÇÃO EM ANDAMENTO · ${importProgress.elapsed}s` : importProgress.state === "done" ? "IMPORTAÇÃO CONCLUÍDA" : importProgress.state === "error" ? "A IMPORTAÇÃO FOI INTERROMPIDA" : "CENTRAL DE IMPORTAÇÃO"}</small>
+                  <strong>{importStatus || "Pronto para importar o lote"}</strong>
+                </div>
+                <b>{importProgress.percent}%</b>
+              </header>
+              <div className="import-progress-track" aria-label={`${importProgress.percent}% concluído`}><i style={{ width: `${importProgress.percent}%` }} /></div>
+              <ol>
+                {["Validar links", "Ler os álbuns", "Selecionar mídia", "Salvar na Nord"].map((label, index) => (
+                  <li key={label} className={importProgress.phase > index ? "complete" : importProgress.phase === index && importProgress.state === "running" ? "current" : ""}>
+                    <span>{importProgress.phase > index ? <CheckCircle2 /> : index + 1}</span><b>{label}</b>
+                  </li>
+                ))}
+              </ol>
+              {importProgress.state === "running" && <p>Não feche esta aba. Álbuns com muitas fotos e vídeos podem levar alguns minutos.</p>}
+              {importProgress.state === "done" && <div className="import-summary"><span><b>{importProgress.created}</b><small>NOVOS</small></span><span><b>{importProgress.duplicates}</b><small>JÁ EXISTIAM</small></span><span><b>{importProgress.failures}</b><small>FALHAS</small></span><span><b>{importProgress.total}</b><small>TOTAL</small></span></div>}
             </div>
           </form>
         )}
