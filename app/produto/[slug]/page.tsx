@@ -31,7 +31,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   return <><StoreHeader /><main id="conteudo" tabIndex={-1} className="detail-page">
     <nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/">Início</Link><span>/</span><Link href="/produtos">Produtos</Link><span>/</span><span aria-current="page">{p.name}</span></nav>
     <div className="detail-grid">
-      <ProductGallery images={p.images} name={p.name} />
+      <ProductGallery media={p.media || p.images} name={p.name} />
       <aside className="detail-info">
         <div className="detail-brands">{productBrands.map((brand) => <Link key={brand} href={`/produtos?marcas=${encodeURIComponent(brand)}`} className="detail-brand">{p.brandLogos?.[brand] && <Image src={p.brandLogos[brand]!} alt={`Logo ${brand}`} width={42} height={42} unoptimized />}{brand.toUpperCase()}</Link>)}</div>
         <h1 className={`detail-title ${p.name.length > 55 ? "long" : ""}`}>{p.name}</h1>{price ? <p className="detail-price">{price}<small>Pix, cartão à vista ou em até 12x com juros</small></p> : <p className="detail-consult">VALOR SOB CONSULTA</p>}

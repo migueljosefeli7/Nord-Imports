@@ -55,6 +55,7 @@ import {
   type ProductDraft,
 } from "@/lib/admin-types";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabase";
+import { isVideoUrl } from "@/lib/media";
 
 type Notice = { tone: "success" | "error"; text: string } | null;
 type DeleteTarget =
@@ -305,14 +306,11 @@ export function AdminDashboard() {
       notify("Preencha nome, slug, marca, categoria e subcategoria.", "error");
       return;
     }
-    const invalidFile = files.find(
-      (file) =>
-        !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-        file.size > 8 * 1024 * 1024,
-    );
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"];
+    const invalidFile = files.find((file) => !allowedTypes.includes(file.type) || file.size > (file.type.startsWith("video/") ? 45 : 8) * 1024 * 1024);
     if (invalidFile) {
       notify(
-        `A imagem “${invalidFile.name}” precisa ser JPG, PNG ou WebP e ter no máximo 8 MB.`,
+        `O arquivo “${invalidFile.name}” precisa ser uma foto JPG, PNG ou WebP (até 8 MB), ou vídeo MP4, WebM ou MOV (até 45 MB).`,
         "error",
       );
       return;
@@ -364,6 +362,7 @@ export function AdminDashboard() {
           const existing =
             products.find((product) => product.id === productId)?.product_images
               .length || 0;
+          let hasCover = Boolean(products.find((product) => product.id === productId)?.product_images.some((item) => item.is_cover && !isVideoUrl(item.url)));
           for (let index = 0; index < files.length; index += 1) {
             const file = files[index];
             const extension =
@@ -387,9 +386,10 @@ export function AdminDashboard() {
                 url: publicUrl.publicUrl,
                 storage_path: path,
                 sort_order: existing + index,
-                is_cover: existing === 0 && index === 0,
+                is_cover: !hasCover && file.type.startsWith("image/"),
               });
             if (image.error) throw image.error;
+            if (file.type.startsWith("image/")) hasCover = true;
           }
         }
         setProductOpen(false);
@@ -416,7 +416,7 @@ export function AdminDashboard() {
       if (wasCover) {
         const next = products
           .find((product) => product.id === productId)
-          ?.product_images.find((image) => image.id !== imageId);
+          ?.product_images.find((image) => image.id !== imageId && !isVideoUrl(image.url));
         if (next)
           await supabase
             .from("product_images")
@@ -453,7 +453,8 @@ export function AdminDashboard() {
     if (from < 0 || to < 0) return;
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
-    const normalized = reordered.map((image, index) => ({ ...image, sort_order: index, is_cover: index === 0 }));
+    const firstImageId = reordered.find((image) => !isVideoUrl(image.url))?.id;
+    const normalized = reordered.map((image, index) => ({ ...image, sort_order: index, is_cover: image.id === firstImageId }));
     setDraggedImageId(null);
     setProducts((current) => current.map((item) => item.id === productId ? { ...item, product_images: normalized } : item));
     await perform(async () => {
@@ -1445,25 +1446,19 @@ export function AdminDashboard() {
             {editingId &&
             products.find((product) => product.id === editingId)?.product_images
               .length ? (
-              <div><div className="image-manager-heading"><span><b>FOTOS DO PRODUTO</b><small>Arraste para reordenar. A primeira foto vira a capa.</small></span></div><div className="image-manager">
+              <div><div className="image-manager-heading"><span><b>FOTOS E VÍDEOS DO PRODUTO</b><small>Arraste para reordenar. Somente fotos podem ser capa.</small></span></div><div className="image-manager">
                 {products
                   .find((product) => product.id === editingId)!
                   .product_images.map((image) => (
                     <div key={image.id} className={draggedImageId === image.id ? "dragging" : ""} draggable onDragStart={() => setDraggedImageId(image.id)} onDragEnd={() => setDraggedImageId(null)} onDragOver={(event) => event.preventDefault()} onDrop={() => void reorderImages(editingId, image.id)}>
                       <span className="image-drag-handle"><GripVertical /> ARRASTAR</span>
-                      <Image
-                        src={image.url}
-                        alt=""
-                        width={92}
-                        height={92}
-                        unoptimized
-                      />
+                      {isVideoUrl(image.url) ? <video src={image.url} muted playsInline preload="metadata" /> : <Image src={image.url} alt="" width={92} height={92} unoptimized />}
                       <button
                         type="button"
                         onClick={() => setCover(editingId, image.id)}
-                        disabled={image.is_cover}
+                        disabled={image.is_cover || isVideoUrl(image.url)}
                       >
-                        {image.is_cover ? "Capa" : "Definir capa"}
+                        {image.is_cover ? "Capa" : isVideoUrl(image.url) ? "Vídeo" : "Definir capa"}
                       </button>
                       <button
                         type="button"
@@ -1485,11 +1480,11 @@ export function AdminDashboard() {
             ) : null}
             <label className="file-drop">
               <ImagePlus />
-              <span>Adicionar imagens</span>
-              <small>JPG, PNG ou WebP. A primeira imagem será a capa.</small>
+              <span>Adicionar fotos ou vídeos</span>
+              <small>Fotos JPG, PNG e WebP; vídeos MP4, WebM ou MOV.</small>
               <input
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
                 multiple
                 onChange={(e) => setFiles(Array.from(e.target.files || []))}
               />
@@ -1498,8 +1493,8 @@ export function AdminDashboard() {
               <p className="file-count">
                 {files.length}{" "}
                 {files.length === 1
-                  ? "imagem selecionada"
-                  : "imagens selecionadas"}
+                  ? "arquivo selecionado"
+                  : "arquivos selecionados"}
               </p>
             )}
           </form>

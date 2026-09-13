@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { brands as fallbackBrands, categories as fallbackCategories, products as fallbackProducts, settings as fallbackSettings, type Product } from "@/lib/data";
 import { getSupabaseBrowserConfig } from "@/lib/supabase";
+import { isVideoUrl } from "@/lib/media";
 
 export type BrandRecord = { id: string; name: string; slug: string; logoUrl: string | null };
 export type StoreSnapshot = { products: Product[]; brands: string[]; brandDetails: BrandRecord[]; categories: string[]; settings: { whatsapp: string; message: string }; configured: boolean; error?: string };
@@ -33,10 +34,11 @@ export async function getStoreSnapshot(): Promise<StoreSnapshot> {
       extraBrands.set(link.product_id, current);
     }
     const products: Product[] = ((productsResult.data || []) as unknown as RawProduct[]).map((item) => {
-      const images = [...(item.product_images || [])].sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order).map((image) => image.url);
+      const media = [...(item.product_images || [])].sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order).map((entry) => entry.url);
+      const images = media.filter((entry) => !isVideoUrl(entry));
       const primaryBrand = brandMap.get(item.brand_id) || "Sem marca";
       const productBrands = [primaryBrand, ...(extraBrands.get(item.id) || []).map((id) => brandMap.get(id)).filter((name): name is string => Boolean(name) && name !== primaryBrand)];
-      return { id: item.id, slug: item.slug, name: item.name, brand: primaryBrand, brands: productBrands, brandLogo: brandLogoMap.get(item.brand_id) || null, brandLogos: Object.fromEntries(productBrands.map((name) => { const brand = (brandsResult.data || []).find((candidate) => candidate.name === name); return [name, brand ? brand.logo_url as string | null : null]; })), category: categoryMap.get(item.categoria_id) || "Sem categoria", subcategory: subcategoryMap.get(item.subcategoria_id) || "Sem subcategoria", description: item.description || "", image: images[0] || "/hero-nord.png", images: images.length ? images : ["/hero-nord.png"], active: true, rare: Boolean(item.rare), sought: Boolean(item.sought), price: item.price, showPrice: Boolean(item.show_price && item.price != null), createdAt: item.created_at };
+      return { id: item.id, slug: item.slug, name: item.name, brand: primaryBrand, brands: productBrands, brandLogo: brandLogoMap.get(item.brand_id) || null, brandLogos: Object.fromEntries(productBrands.map((name) => { const brand = (brandsResult.data || []).find((candidate) => candidate.name === name); return [name, brand ? brand.logo_url as string | null : null]; })), category: categoryMap.get(item.categoria_id) || "Sem categoria", subcategory: subcategoryMap.get(item.subcategoria_id) || "Sem subcategoria", description: item.description || "", image: images[0] || "/hero-nord.png", images: images.length ? images : ["/hero-nord.png"], media: media.length ? media : ["/hero-nord.png"], active: true, rare: Boolean(item.rare), sought: Boolean(item.sought), price: item.price, showPrice: Boolean(item.show_price && item.price != null), createdAt: item.created_at };
     });
     return {
       products,

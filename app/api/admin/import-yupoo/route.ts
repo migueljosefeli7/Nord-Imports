@@ -63,7 +63,9 @@ export async function POST(request: Request) {
         const product = await supabase.from("products").insert({ name: title, slug: `${slugify(title).slice(0, 70)}-${albumId}`, description: "Produto importado do Yupoo. Revise o nome, a descrição e publique quando estiver pronto.", brand_id: body.brand_id, categoria_id: body.categoria_id, subcategoria_id: body.subcategoria_id, yupoo_album_url: albumUrl, active: false }).select("id").single();
         if (product.error) throw product.error;
         const imageUrls = extractImageUrls(html);
+        const videoUrls = extractVideoUrls(html);
         let savedImages = 0;
+        let savedMedia = 0;
         const savedHashes = new Set<string>();
         const savedSourceKeys = new Set<string>();
         const savedFingerprints: Uint8Array[] = [];
@@ -93,9 +95,32 @@ export async function POST(request: Request) {
             const upload = await supabase.storage.from("products").upload(path, bytes, { contentType, upsert: true });
             if (upload.error) continue;
             const { data: publicData } = supabase.storage.from("products").getPublicUrl(path);
-            const image = await supabase.from("product_images").insert({ product_id: product.data.id, url: publicData.publicUrl, storage_path: path, sort_order: savedImages, is_cover: savedImages === 0 });
-            if (!image.error) savedImages += 1;
+            const image = await supabase.from("product_images").insert({ product_id: product.data.id, url: publicData.publicUrl, storage_path: path, sort_order: savedMedia, is_cover: savedImages === 0 });
+            if (!image.error) { savedImages += 1; savedMedia += 1; }
           } catch { /* One unavailable photo must not abort the album. */ }
+        }
+        const savedVideoHashes = new Set<string>();
+        for (const value of videoUrls) {
+          try {
+            const videoUrl = new URL(value);
+            if (!isSafeImageHost(videoUrl.hostname)) continue;
+            const videoResponse = await fetch(videoUrl, { headers: { "User-Agent": "Mozilla/5.0", Referer: albumUrl }, signal: AbortSignal.timeout(30000) });
+            if (!videoResponse.ok) continue;
+            const contentType = (videoResponse.headers.get("content-type") || videoContentType(videoUrl.pathname)).split(";")[0];
+            if (!contentType.startsWith("video/")) continue;
+            const bytes = new Uint8Array(await videoResponse.arrayBuffer());
+            if (bytes.byteLength < 50_000 || bytes.byteLength > 45_000_000) continue;
+            const hash = createHash("sha256").update(bytes).digest("hex");
+            if (savedVideoHashes.has(hash)) continue;
+            savedVideoHashes.add(hash);
+            const extension = contentType.includes("webm") ? "webm" : contentType.includes("quicktime") ? "mov" : "mp4";
+            const path = `${product.data.id}/yupoo-${albumId}-video-${hash.slice(0, 16)}.${extension}`;
+            const upload = await supabase.storage.from("products").upload(path, bytes, { contentType, upsert: true });
+            if (upload.error) continue;
+            const { data: publicData } = supabase.storage.from("products").getPublicUrl(path);
+            const media = await supabase.from("product_images").insert({ product_id: product.data.id, url: publicData.publicUrl, storage_path: path, sort_order: savedMedia, is_cover: false });
+            if (!media.error) savedMedia += 1;
+          } catch { /* One unavailable video must not abort the album. */ }
         }
         if (!savedImages) {
           await supabase.from("products").delete().eq("id", product.data.id);
@@ -155,6 +180,21 @@ function extractImageUrls(html: string) {
   });
   return [...new Set(images)];
 }
+function extractVideoUrls(html: string) {
+  const normalized = html.replace(/\\u002F/gi, "/").replace(/\\\//g, "/").replace(/&amp;/g, "&");
+  const meta = extractMeta(normalized, "og:video") || extractMeta(normalized, "og:video:url") || extractMeta(normalized, "og:video:secure_url");
+  const tagged = [...normalized.matchAll(/(?:src|data-src|data-video-url|data-origin-src)=["']((?:https?:)?\/\/[^"']+\.(?:mp4|webm|mov|m4v)(?:\?[^"']*)?)["']/gi)].map((match) => match[1]);
+  const absolute = [...normalized.matchAll(/https?:\/\/[^"'<>\s\\]+\.(?:mp4|webm|mov|m4v)(?:\?[^"'<>\s\\]*)?/gi)].map((match) => match[0]);
+  return [...new Set([meta, ...tagged, ...absolute].filter(Boolean).flatMap((value) => {
+    try {
+      const url = new URL(value.startsWith("//") ? `https:${value}` : value);
+      if (!isSafeImageHost(url.hostname)) return [];
+      url.hash = "";
+      return [url.href];
+    } catch { return []; }
+  }))];
+}
+function videoContentType(pathname: string) { return /\.webm$/i.test(pathname) ? "video/webm" : /\.mov$/i.test(pathname) ? "video/quicktime" : "video/mp4"; }
 function isSafeImageHost(hostname: string) { return hostname === "yupoo.com" || hostname.endsWith(".yupoo.com"); }
 
 function imageSourceKey(url: URL) {
