@@ -23,10 +23,31 @@ export async function POST(request: Request) {
   if (!isAdmin) return NextResponse.json({ error: "Apenas administradores podem importar." }, { status: 403 });
 
   try {
-    const body = await request.json() as { url?: string; urls?: string[]; brand_id?: string; categoria_id?: string; subcategoria_id?: string };
+    const body = await request.json() as { url?: string; urls?: string[]; brand_id?: string; categoria_id?: string; subcategoria_id?: string; preview?: boolean };
     const submitted = [...new Set((body.urls?.length ? body.urls : body.url?.split(/\s+/) || []).map((value) => value.trim()).filter(Boolean))];
-    if (!submitted.length || !body.brand_id || !body.categoria_id || !body.subcategoria_id) throw new Error("Links e classificação são obrigatórios.");
+    if (!submitted.length) throw new Error("Informe pelo menos um link do Yupoo.");
     if (submitted.length > MAX_ALBUMS) throw new Error(`Envie no máximo ${MAX_ALBUMS} links por importação.`);
+
+    if (body.preview) {
+      const foundUrls: string[] = [];
+      for (const value of submitted) {
+        const source = safeYupooUrl(value);
+        const html = await fetchHtml(source);
+        foundUrls.push(...(source.pathname.includes("/albums/") ? [source.href] : extractAlbumUrls(html, source)));
+      }
+      const uniqueUrls = [...new Set(foundUrls)].slice(0, MAX_ALBUMS);
+      const albums = await Promise.all(uniqueUrls.map(async (albumUrl) => {
+        try {
+          const html = await fetchHtml(new URL(albumUrl));
+          return { url: albumUrl, title: extractMeta(html, "og:title") || extractTitle(html) || `Álbum ${albumUrl.split("/").filter(Boolean).pop()}`, image: extractMeta(html, "og:image") || null };
+        } catch {
+          return { url: albumUrl, title: `Álbum ${albumUrl.split("/").filter(Boolean).pop()}`, image: null };
+        }
+      }));
+      return NextResponse.json({ albums, total: albums.length });
+    }
+
+    if (!body.brand_id || !body.categoria_id || !body.subcategoria_id) throw new Error("A classificação completa é obrigatória.");
 
     const albumHtml = new Map<string, string>();
     const discovered: string[] = [];

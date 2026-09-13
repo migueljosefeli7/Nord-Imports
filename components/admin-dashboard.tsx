@@ -58,6 +58,7 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabase";
 import { isVideoUrl } from "@/lib/media";
 
 type Notice = { tone: "success" | "error"; text: string } | null;
+type ImportAlbum = { url: string; title: string; image: string | null; selected: boolean };
 type DeleteTarget =
   | { kind: "products"; ids: string[] }
   | { kind: "brand" | "category" | "subcategory"; id: string; label: string }
@@ -105,6 +106,8 @@ export function AdminDashboard() {
     subcategoria_id: "",
   });
   const [importStatus, setImportStatus] = useState("");
+  const [importAlbums, setImportAlbums] = useState<ImportAlbum[]>([]);
+  const [collectionLoading, setCollectionLoading] = useState(false);
   const [importProgress, setImportProgress] = useState({
     state: "idle" as "idle" | "running" | "done" | "error",
     percent: 0,
@@ -641,7 +644,12 @@ export function AdminDashboard() {
 
   async function runImport(event: React.FormEvent) {
     event.preventDefault();
-    const urls = importForm.urls.split(/\s+/).map((url) => url.trim()).filter(Boolean);
+    const typedUrls = importForm.urls.split(/\s+/).map((url) => url.trim()).filter(Boolean);
+    if (typedUrls.some((url) => /\/collections?(\/|$)/i.test(url)) && !importAlbums.length) {
+      notify("Primeiro carregue a collection e escolha os álbuns.", "error");
+      return;
+    }
+    const urls = importAlbums.length ? importAlbums.filter((album) => album.selected).map((album) => album.url) : typedUrls;
     if (
       !urls.length ||
       !importForm.brand_id ||
@@ -689,6 +697,7 @@ export function AdminDashboard() {
       );
       setImportProgress((current) => ({ ...current, state: "done", percent: 100, phase: 4, total: result.total, created: result.created, duplicates: result.duplicates, failures: result.failures }));
       setImportForm((current) => ({ ...current, urls: "" }));
+      setImportAlbums([]);
       await loadData();
       notify("Importação concluída.");
     } catch (error) {
@@ -701,6 +710,27 @@ export function AdminDashboard() {
     } finally {
       window.clearInterval(progressTimer);
       setBusy(false);
+    }
+  }
+
+  async function previewCollection() {
+    const urls = importForm.urls.split(/\s+/).map((url) => url.trim()).filter(Boolean);
+    if (!urls.length) return notify("Cole o link da collection primeiro.", "error");
+    setCollectionLoading(true);
+    setImportStatus("Lendo a collection e buscando os álbuns…");
+    try {
+      const { data: { session } } = await supabaseBrowser().auth.getSession();
+      const response = await fetch("/api/admin/import-yupoo", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` }, body: JSON.stringify({ urls, preview: true }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível ler a collection.");
+      setImportAlbums((result.albums || []).map((album: Omit<ImportAlbum, "selected">) => ({ ...album, selected: true })));
+      setImportStatus(`${result.total} álbuns encontrados. Escolha quais deseja importar.`);
+    } catch (error) {
+      setImportAlbums([]);
+      setImportStatus("");
+      notify(error instanceof Error ? error.message : "Não foi possível ler a collection.", "error");
+    } finally {
+      setCollectionLoading(false);
     }
   }
 
@@ -962,13 +992,30 @@ export function AdminDashboard() {
                 required
                 rows={7}
                 value={importForm.urls}
-                onChange={(e) =>
-                  setImportForm({ ...importForm, urls: e.target.value })
-                }
+                onChange={(e) => {
+                  setImportForm({ ...importForm, urls: e.target.value });
+                  setImportAlbums([]);
+                }}
                 placeholder={"https://loja.x.yupoo.com/albums/123456\nhttps://loja.x.yupoo.com/albums/789012\nhttps://loja.x.yupoo.com/albums/345678"}
               />
               <small>{importForm.urls.split(/\s+/).filter(Boolean).length} link(s) na fila · máximo de 30 links por importação</small>
             </label>
+            {/\/collections?(\/|$)/i.test(importForm.urls) && !importAlbums.length && (
+              <button className="button collection-preview-button" type="button" onClick={previewCollection} disabled={collectionLoading || busy}>
+                {collectionLoading ? <LoaderCircle className="spin" /> : <Layers />} {collectionLoading ? "LENDO COLLECTION…" : "CARREGAR ÁLBUNS DA COLLECTION"}
+              </button>
+            )}
+            {importAlbums.length > 0 && <section className="collection-picker">
+              <header><div><small>SELEÇÃO DA COLLECTION</small><h3>Escolha os álbuns</h3><p>{importAlbums.filter((album) => album.selected).length} de {importAlbums.length} selecionados</p></div><div><button type="button" onClick={() => setImportAlbums((items) => items.map((item) => ({ ...item, selected: true })))}>MARCAR TODOS</button><button type="button" onClick={() => setImportAlbums((items) => items.map((item) => ({ ...item, selected: false })))}>LIMPAR</button></div></header>
+              <div className="collection-album-grid">
+                {importAlbums.map((album, index) => <label key={album.url} className={album.selected ? "selected" : ""}>
+                  <input type="checkbox" checked={album.selected} onChange={(event) => setImportAlbums((items) => items.map((item) => item.url === album.url ? { ...item, selected: event.target.checked } : item))} />
+                  <span className="collection-album-image">{album.image ? <Image src={album.image} alt="" fill sizes="180px" unoptimized /> : <ImagePlus />}</span>
+                  <span><small>{String(index + 1).padStart(2, "0")}</small><b>{album.title}</b></span>
+                  <CheckCircle2 />
+                </label>)}
+              </div>
+            </section>}
             <div className="form-row">
               <label>
                 Marca
@@ -1037,7 +1084,7 @@ export function AdminDashboard() {
                 </select>
               </label>
             </div>
-            <button className="button primary" disabled={busy}>
+            <button className="button primary" disabled={busy || collectionLoading || (importAlbums.length > 0 && !importAlbums.some((album) => album.selected))}>
               <RefreshCw className={busy ? "spin" : ""} /> INICIAR IMPORTAÇÃO
             </button>
             <div className={`import-progress ${importProgress.state}`} aria-live="polite">
