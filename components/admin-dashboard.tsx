@@ -248,6 +248,12 @@ export function AdminDashboard() {
     { label: "Categorias", value: categories.length, Icon: Layers },
     { label: "Subcategorias", value: subcategories.length, Icon: FolderTree },
   ];
+  const editingProduct = editingId
+    ? products.find((product) => product.id === editingId)
+    : undefined;
+  const coverMedia =
+    editingProduct?.product_images.find((image) => image.is_cover) ||
+    editingProduct?.product_images[0];
 
   async function perform(action: () => Promise<void>, success: string) {
     setBusy(true);
@@ -1240,19 +1246,23 @@ export function AdminDashboard() {
 
       <Dialog open={productOpen} onOpenChange={setProductOpen}>
         <DialogContent className="admin-dialog product-dialog">
-          <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Editar produto" : "Novo produto"}
-            </DialogTitle>
-            <DialogDescription>
-              Preencha a classificação e escolha as imagens da peça.
-            </DialogDescription>
+          <DialogHeader className="product-editor-header">
+            <div>
+              <span className="editor-kicker">PAINEL NORD / PRODUTOS</span>
+              <DialogTitle>{editingId ? "Editar produto" : "Novo produto"}</DialogTitle>
+              <DialogDescription>Organize conteúdo, classificação, publicação e mídia da peça.</DialogDescription>
+            </div>
+            <span className={`editor-status ${draft.active ? "published" : "draft"}`}><i />{draft.active ? "PUBLICADO" : "RASCUNHO"}</span>
           </DialogHeader>
           <form
             id="product-form"
             onSubmit={saveProduct}
-            className="product-form"
+            className="product-form product-editor-form"
           >
+            <div className="product-editor-layout">
+            <div className="product-editor-main">
+            <section className="editor-section">
+              <div className="editor-section-heading"><span>01</span><div><h3>Identidade da peça</h3><p>Nome público, endereço e história do produto.</p></div></div>
             <div className="form-row">
               <label>
                 Nome
@@ -1295,6 +1305,9 @@ export function AdminDashboard() {
               <small className="field-help">Use linhas em branco para separar parágrafos, “##” para subtítulos e “-” para listas. A formatação aparecerá pronta na página do produto.</small>
             </label>
             {editingId && products.find((product) => product.id === editingId)?.yupoo_album_url ? <div className="admin-source-link"><span><b>ORIGEM DO PRODUTO</b><small>Visível somente no painel administrativo</small></span><a href={products.find((product) => product.id === editingId)!.yupoo_album_url!} target="_blank" rel="noreferrer">ABRIR ÁLBUM NO YUPOO <ExternalLink /></a></div> : null}
+            </section>
+            <section className="editor-section">
+              <div className="editor-section-heading"><span>02</span><div><h3>Comercial</h3><p>Controle interno e forma de exibição do valor.</p></div></div>
             <div className="form-row">
               <label>
                 SKU
@@ -1321,6 +1334,9 @@ export function AdminDashboard() {
               </label>
             </div>
             <p className="price-toggle">Ao preencher o preço, ele aparece automaticamente no catálogo e na página do produto. Deixe vazio para exibir “Sob consulta”.</p>
+            </section>
+            <section className="editor-section">
+              <div className="editor-section-heading"><span>03</span><div><h3>Classificação</h3><p>Defina onde esta peça será encontrada no catálogo.</p></div></div>
             <div className="form-row taxonomy-selects">
               <label>
                 Marca
@@ -1410,6 +1426,9 @@ export function AdminDashboard() {
                 </select>
               </label>
             </div>
+            </section>
+            <section className="editor-section">
+              <div className="editor-section-heading"><span>04</span><div><h3>Publicação</h3><p>Escolha onde a peça ganha destaque na vitrine.</p></div></div>
             <fieldset className="product-switches">
               <legend>Exibição</legend>
               <label>
@@ -1443,16 +1462,34 @@ export function AdminDashboard() {
                 Achado raro
               </label>
             </fieldset>
-            {editingId &&
-            products.find((product) => product.id === editingId)?.product_images
-              .length ? (
+            </section>
+            </div>
+            <aside className="product-editor-media">
+              <div className="editor-media-preview">
+                <span>PRÉ-VISUALIZAÇÃO DA CAPA</span>
+                <div className={coverMedia && isVideoUrl(coverMedia.url) ? "is-video" : ""}>
+                  {coverMedia ? (
+                    isVideoUrl(coverMedia.url) ? (
+                      <video src={coverMedia.url} muted playsInline controls preload="metadata" />
+                    ) : (
+                      <Image src={coverMedia.url} alt={draft.name || "Capa do produto"} fill sizes="360px" unoptimized />
+                    )
+                  ) : (
+                    <div className="editor-media-empty"><ImagePlus /><b>SEM CAPA</b><small>Adicione uma foto para visualizar a peça.</small></div>
+                  )}
+                </div>
+                <strong>{draft.name || "Produto sem nome"}</strong>
+                <small>{brands.find((brand) => brand.id === draft.brand_id)?.name || "Marca não definida"}</small>
+              </div>
+              <div className="editor-section-heading media-heading"><span>05</span><div><h3>Galeria</h3><p>Arraste, organize e escolha a imagem principal.</p></div></div>
+            {editingId && editingProduct?.product_images.length ? (
               <div><div className="image-manager-heading"><span><b>FOTOS E VÍDEOS DO PRODUTO</b><small>Arraste para reordenar. Somente fotos podem ser capa.</small></span></div><div className="image-manager">
-                {products
-                  .find((product) => product.id === editingId)!
-                  .product_images.map((image) => (
-                    <div key={image.id} className={draggedImageId === image.id ? "dragging" : ""} draggable onDragStart={() => setDraggedImageId(image.id)} onDragEnd={() => setDraggedImageId(null)} onDragOver={(event) => event.preventDefault()} onDrop={() => void reorderImages(editingId, image.id)}>
+                {editingProduct.product_images.map((image, index) => (
+                    <div key={image.id} className={`media-card ${image.is_cover ? "is-cover" : ""} ${draggedImageId === image.id ? "dragging" : ""}`} draggable onDragStart={() => setDraggedImageId(image.id)} onDragEnd={() => setDraggedImageId(null)} onDragOver={(event) => event.preventDefault()} onDrop={() => void reorderImages(editingId, image.id)}>
+                      <span className="media-order">{String(index + 1).padStart(2, "0")}</span>
                       <span className="image-drag-handle"><GripVertical /> ARRASTAR</span>
                       {isVideoUrl(image.url) ? <video src={image.url} muted playsInline preload="metadata" /> : <Image src={image.url} alt="" width={92} height={92} unoptimized />}
+                      <div className="media-card-actions">
                       <button
                         type="button"
                         onClick={() => setCover(editingId, image.id)}
@@ -1474,6 +1511,7 @@ export function AdminDashboard() {
                       >
                         Remover
                       </button>
+                      </div>
                     </div>
                   ))}
               </div></div>
@@ -1494,11 +1532,13 @@ export function AdminDashboard() {
                 {files.length}{" "}
                 {files.length === 1
                   ? "arquivo selecionado"
-                  : "arquivos selecionados"}
+                : "arquivos selecionados"}
               </p>
             )}
+            </aside>
+            </div>
           </form>
-          <DialogFooter>
+          <DialogFooter className="product-editor-footer">
             <button
               className="button"
               type="button"
@@ -1512,7 +1552,7 @@ export function AdminDashboard() {
               form="product-form"
               disabled={busy}
             >
-              SALVAR PRODUTO
+              {busy ? "SALVANDO..." : editingId ? "SALVAR ALTERAÇÕES" : "CRIAR PRODUTO"}
             </button>
           </DialogFooter>
         </DialogContent>
