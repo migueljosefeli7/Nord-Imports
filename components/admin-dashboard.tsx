@@ -63,6 +63,36 @@ type DeleteTarget =
   | { kind: "products"; ids: string[] }
   | { kind: "brand" | "category" | "subcategory"; id: string; label: string }
   | null;
+
+async function squareImageFile(file: File) {
+  if (!file.type.startsWith("image/")) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    if (bitmap.width === bitmap.height) {
+      bitmap.close();
+      return file;
+    }
+    const longestSide = Math.max(bitmap.width, bitmap.height);
+    const side = Math.min(longestSide, 2400);
+    const scale = side / longestSide;
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = side;
+    canvas.height = side;
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.fillStyle = "#f1f2ef";
+    context.fillRect(0, 0, side, side);
+    context.drawImage(bitmap, (side - width) / 2, (side - height) / 2, width, height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.92));
+    return blob ? new File([blob], `${file.name.replace(/\.[^.]+$/, "")}-1x1.webp`, { type: "image/webp" }) : file;
+  } catch {
+    return file;
+  }
+}
+
 export function AdminDashboard() {
   const router = useRouter();
   const [status, setStatus] = useState<
@@ -383,7 +413,7 @@ export function AdminDashboard() {
               .length || 0;
           let hasCover = Boolean(products.find((product) => product.id === productId)?.product_images.some((item) => item.is_cover && !isVideoUrl(item.url)));
           for (let index = 0; index < files.length; index += 1) {
-            const file = files[index];
+            const file = await squareImageFile(files[index]);
             const extension =
               file.name
                 .split(".")
@@ -1612,7 +1642,7 @@ export function AdminDashboard() {
             <label className="file-drop">
               <ImagePlus />
               <span>Adicionar fotos ou vídeos</span>
-              <small>Fotos JPG, PNG e WebP; vídeos MP4, WebM ou MOV.</small>
+              <small>Fotos JPG, PNG e WebP; vídeos MP4, WebM ou MOV. Fotos não quadradas são adaptadas automaticamente para 1:1, sem cortes.</small>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"

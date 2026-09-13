@@ -111,9 +111,12 @@ export async function POST(request: Request) {
             savedSourceKeys.add(sourceKey);
             savedHashes.add(hash);
             savedFingerprints.push(fingerprint);
-            const extension = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+            const needsSquareCanvas = dimensions.width !== dimensions.height;
+            const uploadBytes = needsSquareCanvas ? await makeSquareImage(bytes, dimensions) : bytes;
+            const uploadContentType = needsSquareCanvas ? "image/webp" : contentType;
+            const extension = uploadContentType.includes("png") ? "png" : uploadContentType.includes("webp") ? "webp" : "jpg";
             const path = `${product.data.id}/yupoo-${albumId}-${hash.slice(0, 16)}.${extension}`;
-            const upload = await supabase.storage.from("products").upload(path, bytes, { contentType, upsert: true });
+            const upload = await supabase.storage.from("products").upload(path, uploadBytes, { contentType: uploadContentType, upsert: true });
             if (upload.error) continue;
             const { data: publicData } = supabase.storage.from("products").getPublicUrl(path);
             const image = await supabase.from("product_images").insert({ product_id: product.data.id, url: publicData.publicUrl, storage_path: path, sort_order: savedMedia, is_cover: savedImages === 0 });
@@ -234,6 +237,15 @@ async function imageFingerprint(bytes: Uint8Array) {
     .raw()
     .toBuffer();
   return new Uint8Array(normalized);
+}
+
+async function makeSquareImage(bytes: Uint8Array, dimensions: { width: number; height: number }) {
+  const side = Math.min(Math.max(dimensions.width, dimensions.height), 2400);
+  return sharp(bytes)
+    .rotate()
+    .resize(side, side, { fit: "contain", background: { r: 241, g: 242, b: 239, alpha: 1 }, withoutEnlargement: true })
+    .webp({ quality: 92, effort: 4 })
+    .toBuffer();
 }
 
 function visuallyEqual(first: Uint8Array, second: Uint8Array) {
