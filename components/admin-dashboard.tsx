@@ -307,10 +307,13 @@ export function AdminDashboard() {
       await loadData();
       notify(success);
     } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : typeof error === "object" && error && "message" in error
+          ? String(error.message)
+          : "Não foi possível concluir a ação.";
       notify(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível concluir a ação.",
+        message,
         "error",
       );
     } finally {
@@ -400,15 +403,14 @@ export function AdminDashboard() {
         const productId = result.data.id as string;
         if (!editingId) setEditingId(productId);
         const collaboratorIds = draft.collaborator_brand_ids.filter((brandId) => brandId !== draft.brand_id);
-        const hadCollaborators = Boolean(products.find((item) => item.id === productId)?.collaborator_brand_ids.length);
-        if (collaboratorIds.length || hadCollaborators) {
-          const clearCollaborators = await supabase.from("product_brands").delete().eq("product_id", productId);
-          if (clearCollaborators.error) throw clearCollaborators.error;
-        }
-        if (collaboratorIds.length) {
-          const collaborators = await supabase.from("product_brands").insert(collaboratorIds.map((brandId) => ({ product_id: productId, brand_id: brandId })));
-          if (collaborators.error) throw collaborators.error;
-        }
+        const { data: { session } } = await supabase.auth.getSession();
+        const collaborationResponse = await fetch("/api/admin/product-brands", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+          body: JSON.stringify({ productId, brandIds: collaboratorIds }),
+        });
+        const collaborationResult = await collaborationResponse.json();
+        if (!collaborationResponse.ok) throw new Error(collaborationResult.error || "Não foi possível salvar as marcas da colaboração.");
         if (files.length) {
           const existing =
             products.find((product) => product.id === productId)?.product_images
@@ -726,16 +728,24 @@ export function AdminDashboard() {
       const {
         data: { session },
       } = await supabaseBrowser().auth.getSession();
-      const response = await fetch("/api/admin/import-yupoo", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || ""}`,
-        },
-        body: JSON.stringify({ ...importForm, urls }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Falha na importação.");
+      const totals = { created: 0, duplicates: 0, failures: 0, total: 0 };
+      const batches = Array.from({ length: Math.ceil(urls.length / 30) }, (_, index) => urls.slice(index * 30, index * 30 + 30));
+      for (let index = 0; index < batches.length; index += 1) {
+        setImportStatus(batches.length > 1 ? `Importando lote ${index + 1} de ${batches.length} · ${batches[index].length} álbuns…` : "Importando fotos e vídeos selecionados…");
+        const response = await fetch("/api/admin/import-yupoo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+          body: JSON.stringify({ ...importForm, urls: batches[index] }),
+        });
+        const batchResult = await response.json();
+        if (!response.ok) throw new Error(batchResult.error || `Falha no lote ${index + 1}.`);
+        totals.created += batchResult.created || 0;
+        totals.duplicates += batchResult.duplicates || 0;
+        totals.failures += batchResult.failures || 0;
+        totals.total += batchResult.total || batches[index].length;
+        setImportProgress((current) => ({ ...current, percent: Math.round(((index + 1) / batches.length) * 100), phase: index + 1 === batches.length ? 4 : 3, created: totals.created, duplicates: totals.duplicates, failures: totals.failures }));
+      }
+      const result = totals;
       setImportStatus(
         `${result.created} novos · ${result.duplicates} existentes · ${result.failures} falhas`,
       );
@@ -1045,7 +1055,7 @@ export function AdminDashboard() {
                 }}
                 placeholder={"https://loja.x.yupoo.com/albums/123456\nhttps://loja.x.yupoo.com/albums/789012\nhttps://loja.x.yupoo.com/albums/345678"}
               />
-              <small>{importForm.urls.split(/\s+/).filter(Boolean).length} link(s) na fila · máximo de 30 links por importação</small>
+              <small>{importForm.urls.split(/\s+/).filter(Boolean).length} link(s) informado(s) · collections completas são divididas automaticamente em lotes seguros</small>
             </label>
             {/\/collections?(\/|$)/i.test(importForm.urls) && !importAlbums.length && (
               <button className="button collection-preview-button" type="button" onClick={previewCollection} disabled={collectionLoading || busy}>

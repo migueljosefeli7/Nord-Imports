@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const MAX_ALBUMS = 30;
+const MAX_COLLECTION_ALBUMS = 1000;
 
 export async function POST(request: Request) {
   const { url, key } = getSupabaseBrowserConfig();
@@ -26,24 +27,27 @@ export async function POST(request: Request) {
     const body = await request.json() as { url?: string; urls?: string[]; brand_id?: string; categoria_id?: string; subcategoria_id?: string; preview?: boolean };
     const submitted = [...new Set((body.urls?.length ? body.urls : body.url?.split(/\s+/) || []).map((value) => value.trim()).filter(Boolean))];
     if (!submitted.length) throw new Error("Informe pelo menos um link do Yupoo.");
-    if (submitted.length > MAX_ALBUMS) throw new Error(`Envie no máximo ${MAX_ALBUMS} links por importação.`);
+    if (!body.preview && submitted.length > MAX_ALBUMS) throw new Error(`Envie no máximo ${MAX_ALBUMS} links por importação.`);
 
     if (body.preview) {
-      const foundUrls: string[] = [];
+      const found = new Map<string, { url: string; title: string; image: string | null }>();
       for (const value of submitted) {
         const source = safeYupooUrl(value);
         const html = await fetchHtml(source);
-        foundUrls.push(...(source.pathname.includes("/albums/") ? [source.href] : extractAlbumUrls(html, source)));
-      }
-      const uniqueUrls = [...new Set(foundUrls)].slice(0, MAX_ALBUMS);
-      const albums = await Promise.all(uniqueUrls.map(async (albumUrl) => {
-        try {
-          const html = await fetchHtml(new URL(albumUrl));
-          return { url: albumUrl, title: extractMeta(html, "og:title") || extractTitle(html) || `Álbum ${albumUrl.split("/").filter(Boolean).pop()}`, image: extractMeta(html, "og:image") || null };
-        } catch {
-          return { url: albumUrl, title: `Álbum ${albumUrl.split("/").filter(Boolean).pop()}`, image: null };
+        if (source.pathname.includes("/albums/")) {
+          found.set(source.href, { url: source.href, title: extractMeta(html, "og:title") || extractTitle(html), image: extractImageUrls(html)[0] || null });
+          continue;
         }
-      }));
+        for (const card of extractAlbumCards(html, source)) found.set(card.url, card);
+        const pageCount = extractPageCount(html);
+        for (let page = 2; page <= pageCount && found.size < MAX_COLLECTION_ALBUMS; page += 1) {
+          const pageUrl = new URL(source);
+          pageUrl.searchParams.set("page", String(page));
+          const pageHtml = await fetchHtml(pageUrl);
+          for (const card of extractAlbumCards(pageHtml, pageUrl)) found.set(card.url, card);
+        }
+      }
+      const albums = [...found.values()].slice(0, MAX_COLLECTION_ALBUMS);
       return NextResponse.json({ albums, total: albums.length });
     }
 
@@ -184,6 +188,30 @@ function decodeHtml(value: string) { return value.replace(/&amp;/g, "&").replace
 function extractAlbumUrls(html: string, base: URL) {
   const urls = [...html.matchAll(/href=["']([^"']*\/albums\/\d+[^"']*)["']/gi)].map((match) => new URL(decodeHtml(match[1]), base).href.split("?")[0]);
   return [...new Set(urls.filter((value) => { try { return safeYupooUrl(value).href; } catch { return false; } }))];
+}
+function extractPageCount(html: string) {
+  const values = [...html.matchAll(/(?:[?&]page=|["'](?:pageCount|totalPage)["']\s*:\s*)(\d+)/gi)].map((match) => Number(match[1]));
+  return Math.min(100, Math.max(1, ...values.filter(Number.isFinite)));
+}
+function extractAlbumCards(html: string, base: URL) {
+  const normalized = html.replace(/\\u002F/gi, "/").replace(/\\\//g, "/").replace(/&amp;/g, "&");
+  const cards: { url: string; title: string; image: string | null }[] = [];
+  for (const match of normalized.matchAll(/<a\b([^>]*href=["'][^"']*\/albums\/\d+[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi)) {
+    const href = match[1].match(/href=["']([^"']+)/i)?.[1];
+    if (!href) continue;
+    let url: URL;
+    try { url = safeYupooUrl(new URL(decodeHtml(href), base).href.split("?")[0]); } catch { continue; }
+    const block = `${match[1]} ${match[2]}`;
+    const rawImage = block.match(/(?:data-origin-src|data-src|src)=["']([^"']+)/i)?.[1] || block.match(/background-image\s*:\s*url\(["']?([^"')]+)/i)?.[1] || "";
+    let image: string | null = null;
+    try { image = new URL(decodeHtml(rawImage).replace(/^\/\//, "https://"), base).href; } catch { /* Card without image. */ }
+    const attributeTitle = match[1].match(/title=["']([^"']+)/i)?.[1];
+    const textTitle = decodeHtml(match[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")).trim();
+    const albumId = url.pathname.match(/\/albums\/(\d+)/)?.[1];
+    cards.push({ url: url.href, title: decodeHtml(attributeTitle || textTitle || `Álbum ${albumId}`), image });
+  }
+  if (!cards.length) return extractAlbumUrls(normalized, base).map((url) => ({ url, title: `Álbum ${url.match(/\/albums\/(\d+)/)?.[1] || "Yupoo"}`, image: null }));
+  return cards;
 }
 function extractImageUrls(html: string) {
   const normalized = html.replace(/\\u002F/gi, "/").replace(/\\\//g, "/").replace(/&amp;/g, "&");
