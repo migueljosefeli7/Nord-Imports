@@ -59,6 +59,7 @@ import { isVideoUrl } from "@/lib/media";
 
 type Notice = { tone: "success" | "error"; text: string } | null;
 type ImportAlbum = { url: string; title: string; image: string | null; selected: boolean };
+type TaxonomyEdit = { kind: "category" | "subcategory"; id: string; name: string } | null;
 type DeleteTarget =
   | { kind: "products"; ids: string[] }
   | { kind: "brand" | "category" | "subcategory"; id: string; label: string }
@@ -129,6 +130,7 @@ export function AdminDashboard() {
     category_id: "",
     name: "",
   });
+  const [taxonomyEdit, setTaxonomyEdit] = useState<TaxonomyEdit>(null);
   const [importForm, setImportForm] = useState({
     urls: "",
     brand_id: "",
@@ -547,7 +549,7 @@ export function AdminDashboard() {
       if (result.error) throw result.error;
       setSelected([]);
       setBulkOpen(false);
-    }, "Produtos movidos para a nova categoria.");
+    }, "Classificação atualizada em todos os produtos selecionados.");
   }
 
   async function confirmDelete() {
@@ -654,6 +656,18 @@ export function AdminDashboard() {
       if (result.error) throw result.error;
       setSubcategoryForm({ ...subcategoryForm, name: "" });
     }, "Subcategoria criada.");
+  }
+
+  async function renameTaxonomy(event: React.FormEvent) {
+    event.preventDefault();
+    if (!taxonomyEdit?.name.trim()) return;
+    const current = taxonomyEdit;
+    await perform(async () => {
+      const table = current.kind === "category" ? "categories" : "subcategories";
+      const result = await supabaseBrowser().from(table).update({ name: current.name.trim(), slug: slugify(current.name) }).eq("id", current.id);
+      if (result.error) throw new Error(result.error.code === "23505" ? "Já existe um item com esse nome nesta estrutura." : result.error.message);
+      setTaxonomyEdit(null);
+    }, current.kind === "category" ? "Categoria renomeada." : "Subcategoria renomeada.");
   }
   async function saveSettings(event: React.FormEvent) {
     event.preventDefault();
@@ -934,9 +948,12 @@ export function AdminDashboard() {
               </button>
               <button
                 disabled={!selected.length}
-                onClick={() => setBulkOpen(true)}
+                onClick={() => {
+                  setBulkTaxonomy({ brand_id: "", categoria_id: "", subcategoria_id: "" });
+                  setBulkOpen(true);
+                }}
               >
-                <Layers /> Mover
+                <Layers /> Editar classificação
               </button>
               <button
                 className="danger-action"
@@ -1283,7 +1300,21 @@ export function AdminDashboard() {
                       <div className="taxonomy-category" key={category.id}>
                         <div>
                           <ChevronRight />
-                          <b>{category.name}</b>
+                          {taxonomyEdit?.kind === "category" && taxonomyEdit.id === category.id ? (
+                            <form className="taxonomy-rename" onSubmit={renameTaxonomy}>
+                              <input autoFocus className="admin-input" value={taxonomyEdit.name} onChange={(event) => setTaxonomyEdit({ ...taxonomyEdit, name: event.target.value })} aria-label="Novo nome da categoria" />
+                              <button className="save" aria-label="Salvar novo nome"><CheckCircle2 /></button>
+                              <button type="button" onClick={() => setTaxonomyEdit(null)} aria-label="Cancelar edição"><X /></button>
+                            </form>
+                          ) : <b>{category.name}</b>}
+                          <span className="taxonomy-item-actions">
+                          <button
+                            aria-label={`Renomear categoria ${category.name}`}
+                            title="Renomear categoria"
+                            onClick={() => setTaxonomyEdit({ kind: "category", id: category.id, name: category.name })}
+                          >
+                            <Pencil />
+                          </button>
                           <button
                             aria-label={`Excluir categoria ${category.name}`}
                             onClick={() =>
@@ -1296,12 +1327,21 @@ export function AdminDashboard() {
                           >
                             <Trash2 />
                           </button>
+                          </span>
                         </div>
                         {subcategories
                           .filter((item) => item.category_id === category.id)
                           .map((subcategory) => (
-                            <p key={subcategory.id}>
-                              <span>{subcategory.name}</span>
+                            <div className="taxonomy-subcategory" key={subcategory.id}>
+                              {taxonomyEdit?.kind === "subcategory" && taxonomyEdit.id === subcategory.id ? (
+                                <form className="taxonomy-rename" onSubmit={renameTaxonomy}>
+                                  <input autoFocus className="admin-input" value={taxonomyEdit.name} onChange={(event) => setTaxonomyEdit({ ...taxonomyEdit, name: event.target.value })} aria-label="Novo nome da subcategoria" />
+                                  <button className="save" aria-label="Salvar novo nome"><CheckCircle2 /></button>
+                                  <button type="button" onClick={() => setTaxonomyEdit(null)} aria-label="Cancelar edição"><X /></button>
+                                </form>
+                              ) : <span>{subcategory.name}</span>}
+                              <span className="taxonomy-item-actions">
+                              <button aria-label={`Renomear subcategoria ${subcategory.name}`} title="Renomear subcategoria" onClick={() => setTaxonomyEdit({ kind: "subcategory", id: subcategory.id, name: subcategory.name })}><Pencil /></button>
                               <button
                                 aria-label={`Excluir subcategoria ${subcategory.name}`}
                                 onClick={() =>
@@ -1314,7 +1354,8 @@ export function AdminDashboard() {
                               >
                                 <Trash2 />
                               </button>
-                            </p>
+                              </span>
+                            </div>
                           ))}
                       </div>
                     ))}
@@ -1684,9 +1725,9 @@ export function AdminDashboard() {
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
         <DialogContent className="admin-dialog">
           <DialogHeader>
-            <DialogTitle>Mover {selected.length} produtos</DialogTitle>
+            <DialogTitle>Editar {selected.length} produtos em massa</DialogTitle>
             <DialogDescription>
-              Escolha a nova marca, categoria e subcategoria.
+              A nova marca, categoria e subcategoria serão aplicadas a todos os produtos selecionados.
             </DialogDescription>
           </DialogHeader>
           <form id="bulk-form" onSubmit={moveProducts} className="product-form">
@@ -1763,7 +1804,7 @@ export function AdminDashboard() {
               CANCELAR
             </button>
             <button className="button primary" type="submit" form="bulk-form">
-              MOVER PRODUTOS
+              APLICAR A TODOS
             </button>
           </DialogFooter>
         </DialogContent>
