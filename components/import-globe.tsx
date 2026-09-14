@@ -11,6 +11,10 @@ const ROUTES = [
   { id: "canada", label: "Canadá", from: [56.1304, -106.3468] as [number, number] },
 ];
 
+function allowsManualRotation() {
+  return window.matchMedia("(min-width: 769px) and (pointer: fine)").matches;
+}
+
 export function ImportGlobe() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragStart = useRef<number | null>(null);
@@ -84,20 +88,21 @@ export function ImportGlobe() {
       <div className="globe-orbit" aria-hidden="true" />
       <canvas
         ref={canvasRef}
-        className="import-globe-canvas"
+        className={`import-globe-canvas ${dragging ? "is-dragging" : ""}`}
         aria-label="Globo interativo com rotas da China, Estados Unidos e Canadá conectadas ao Brasil"
         role="img"
         onPointerDown={(event) => {
+          if (!allowsManualRotation()) return;
           dragStart.current = event.clientX - dragOffset.current * 220;
           setDragging(true);
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
         onPointerMove={(event) => {
+          if (!allowsManualRotation()) return;
           if (dragStart.current !== null) dragOffset.current = (event.clientX - dragStart.current) / 220;
         }}
         onPointerUp={release}
         onPointerCancel={release}
-        style={{ cursor: dragging ? "grabbing" : "grab" }}
       />
       {[...ROUTES.map(({ id, label }) => ({ id, label })), { id: "brasil", label: "Brasil" }].map((marker) => <span
         className={`globe-marker-pulse ${marker.id === "brasil" ? "destination" : ""}`}
