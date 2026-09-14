@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { brands, categories, settings } from "@/lib/data";
+import { categories, settings } from "@/lib/data";
 import type { Product } from "@/lib/data";
 import { useFavorites } from "@/lib/favorites";
 
@@ -15,14 +15,12 @@ function MaybeClose({ children, enabled }: { children: ReactNode; enabled: boole
   return enabled ? <SheetClose asChild>{children}</SheetClose> : <>{children}</>;
 }
 
-function NavLinks({ brandList, categoryList, closeMobile = false }: { brandList: string[]; categoryList: string[]; closeMobile?: boolean }) {
+function NavLinks({ categoryList, closeMobile = false }: { categoryList: string[]; closeMobile?: boolean }) {
   return <>
     <MaybeClose enabled={closeMobile}><Link href="/produtos">Novidades</Link></MaybeClose>
-    <div className="nav-drop"><button aria-haspopup="true">Marcas</button><div>{brandList.map((b) => <MaybeClose enabled={closeMobile} key={b}><Link href={`/marca/${encodeURIComponent(b.toLowerCase().replaceAll(" ", "-"))}`}>{b}</Link></MaybeClose>)}</div></div>
     <div className="nav-drop"><button aria-haspopup="true">Categorias</button><div>{categoryList.map((c) => <MaybeClose enabled={closeMobile} key={c}><Link href={`/produtos?categoria=${encodeURIComponent(c)}`}>{c}</Link></MaybeClose>)}</div></div>
     <MaybeClose enabled={closeMobile}><Link href="/marcas">Marcas A–Z</Link></MaybeClose>
-    <MaybeClose enabled={closeMobile}><Link href="/rastreio">Rastrear pedido</Link></MaybeClose>
-    <MaybeClose enabled={closeMobile}><Link href="/#sobre">Manifesto</Link></MaybeClose>
+    <MaybeClose enabled={closeMobile}><Link href="/rastreio">Rastreie pedido</Link></MaybeClose>
   </>;
 }
 
@@ -32,13 +30,12 @@ export function StoreHeader() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [found, setFound] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
-  const [brandList, setBrandList] = useState(brands);
   const [categoryList, setCategoryList] = useState(categories);
   const [whatsapp, setWhatsapp] = useState(settings.whatsapp);
   const visibleResults = q.trim().length > 1 ? found : [];
 
   useEffect(() => {
-    fetch("/api/catalog").then((response) => response.ok ? response.json() : null).then((data) => { if (data) { setBrandList(data.brands); setCategoryList(data.categories); setWhatsapp(data.settings.whatsapp); } }).catch(() => undefined);
+    fetch("/api/catalog").then((response) => response.ok ? response.json() : null).then((data) => { if (data) { setCategoryList(data.categories); setWhatsapp(data.settings.whatsapp); } }).catch(() => undefined);
   }, []);
   useEffect(() => {
     if (q.trim().length < 2) return;
@@ -63,12 +60,12 @@ export function StoreHeader() {
           <SheetContent side="left" className="mobile-menu-sheet" showCloseButton={false}>
             <SheetTitle className="sr-only">Menu principal</SheetTitle>
             <div className="mobile-menu-top"><BrandLogo className="header-logo" /><SheetClose asChild><button className="menu-close" aria-label="Fechar menu"><X /></button></SheetClose></div>
-            <nav className="mobile-nav" aria-label="Navegação mobile"><NavLinks brandList={brandList} categoryList={categoryList} closeMobile /></nav>
+            <nav className="mobile-nav" aria-label="Navegação mobile"><NavLinks categoryList={categoryList} closeMobile /></nav>
             <a className="mobile-wa" target="_blank" rel="noreferrer" href={`https://wa.me/${whatsapp}`}>FALAR COM A NORD <ArrowUpRight /></a>
           </SheetContent>
         </Sheet>
         <Link href="/" aria-label="Nord Imports — início"><BrandLogo className="header-logo" /></Link>
-        <nav className="main-nav" aria-label="Navegação principal"><NavLinks brandList={brandList} categoryList={categoryList} /></nav>
+        <nav className="main-nav" aria-label="Navegação principal"><NavLinks categoryList={categoryList} /></nav>
         <div className="nav-actions">
           <Link className="header-favorites" href="/favoritos" aria-label={`Favoritos: ${favorites.count} produtos`}><Heart fill={favorites.count ? "currentColor" : "none"} /><span>Favoritos</span>{favorites.count > 0 && <b>{favorites.count}</b>}</Link>
           <button className="icon-button search-trigger" aria-label="Buscar produtos" aria-expanded={searchOpen} onClick={() => setSearchOpen(true)}><Search /><span>Buscar</span></button>
