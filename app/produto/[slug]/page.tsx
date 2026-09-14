@@ -10,6 +10,7 @@ import { StoreFooter } from "@/components/store-footer";
 import { StoreHeader } from "@/components/store-header";
 import { getStoreSnapshot } from "@/lib/store-repository";
 import { FormattedDescription } from "@/components/formatted-description";
+import { FavoriteButton } from "@/components/favorite-button";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -38,7 +39,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <div className="availability"><span><i /> Disponível sob consulta</span><small>Produto importado</small></div>
         <div className="detail-meta">{productBrands.map((brand) => <Link key={brand} href={`/produtos?marcas=${encodeURIComponent(brand)}`}>{brand}</Link>)}<Link href={`/produtos?categorias=${encodeURIComponent(p.category)}`}>{p.category}</Link><Link href={`/produtos?subcategorias=${encodeURIComponent(p.subcategory)}`}>{p.subcategory}</Link></div>
         <section className="product-story"><h2>Sobre esta peça</h2><FormattedDescription text={p.description} /></section>
-        <div className="detail-actions"><InterestButton phone={settings.whatsapp} message={settings.message} product={p.name} /></div>
+        <div className="detail-actions"><InterestButton phone={settings.whatsapp} message={settings.message} product={p.name} /><FavoriteButton productId={p.id} productName={p.name} variant="detail" /></div>
         <ul className="trust-list"><li><ShieldCheck aria-hidden="true" /><span><b>Curadoria Nord</b><small>Selecionado individualmente pela nossa equipe.</small></span></li><li><PackageCheck aria-hidden="true" /><span><b>Entrega sem surpresa</b><small>Os custos combinados contemplam o envio até sua casa.</small></span></li><li><Check aria-hidden="true" /><span><b>Atendimento humano</b><small>Escolha, tamanho, pagamento e prazo resolvidos pelo WhatsApp.</small></span></li></ul>
       </aside>
     </div>

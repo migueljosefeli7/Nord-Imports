@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import type { Product } from "@/lib/data";
+import { FavoriteButton } from "@/components/favorite-button";
 
 export function ProductCard({ product, index = 0, featured = false }: { product: Product; index?: number; featured?: boolean }) {
   const price = product.showPrice && product.price != null ? product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : null;
@@ -13,6 +14,7 @@ export function ProductCard({ product, index = 0, featured = false }: { product:
       {product.rare && <span className="rare-tag">RARO</span>}
       <span className="view-tag">VER PEÇA <ArrowUpRight size={16} /></span>
     </Link>
+    <FavoriteButton productId={product.id} productName={product.name} />
     <div className="product-info"><div><p>{product.brandLogo && <Image src={product.brandLogo} alt="" width={28} height={28} unoptimized />}<span>{brandLabel} · {product.subcategory}</span></p><h3><Link href={`/produto/${product.slug}`}>{product.name}</Link></h3></div><strong>{price || "Sob consulta"}</strong></div>
   </article>;
 }

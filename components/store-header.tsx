@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Menu, Search, X } from "lucide-react";
+import { ArrowUpRight, Heart, Menu, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { brands, categories, settings } from "@/lib/data";
 import type { Product } from "@/lib/data";
+import { useFavorites } from "@/lib/favorites";
 
 function MaybeClose({ children, enabled }: { children: ReactNode; enabled: boolean }) {
   return enabled ? <SheetClose asChild>{children}</SheetClose> : <>{children}</>;
@@ -26,6 +27,7 @@ function NavLinks({ brandList, categoryList, closeMobile = false }: { brandList:
 }
 
 export function StoreHeader() {
+  const favorites = useFavorites();
   const [q, setQ] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [found, setFound] = useState<Product[]>([]);
@@ -68,6 +70,7 @@ export function StoreHeader() {
         <Link href="/" aria-label="Nord Imports — início"><BrandLogo className="header-logo" /></Link>
         <nav className="main-nav" aria-label="Navegação principal"><NavLinks brandList={brandList} categoryList={categoryList} /></nav>
         <div className="nav-actions">
+          <Link className="header-favorites" href="/favoritos" aria-label={`Favoritos: ${favorites.count} produtos`}><Heart fill={favorites.count ? "currentColor" : "none"} /><span>Favoritos</span>{favorites.count > 0 && <b>{favorites.count}</b>}</Link>
           <button className="icon-button search-trigger" aria-label="Buscar produtos" aria-expanded={searchOpen} onClick={() => setSearchOpen(true)}><Search /><span>Buscar</span></button>
           {searchOpen && <div className="search-overlay" role="dialog" aria-modal="true" aria-label="Buscar produtos">
               <div className="search-panel">
