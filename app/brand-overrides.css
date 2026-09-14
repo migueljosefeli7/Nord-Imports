@@ -90,3 +90,25 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .nav-wrap{grid-template-columns:170px 1fr 170px}
 .nav-actions{display:none}
 @media(max-width:1024px){.nav-wrap{grid-template-columns:44px 1fr 44px}}
+
+/* Contrato final das capas públicas: sempre 1:1 e nunca recortadas. */
+.products-grid .product-image,
+.popular-grid .product-image,
+.related-section .product-image,
+.favorites-page .product-image,
+.product-card.featured .product-image{
+  width:100%;
+  aspect-ratio:1 / 1!important;
+  background:#f1f2ef;
+  overflow:hidden;
+}
+.products-grid .product-image>img,
+.popular-grid .product-image>img,
+.related-section .product-image>img,
+.favorites-page .product-image>img,
+.product-card.featured .product-image>img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+}
