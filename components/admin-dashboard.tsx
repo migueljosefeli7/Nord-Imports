@@ -794,6 +794,13 @@ export function AdminDashboard() {
         totals.duplicates += batchResult.duplicates || 0;
         totals.failures += batchResult.failures || 0;
         totals.total += batchResult.total || batches[index].length;
+        if (batchResult.created) {
+          try {
+            await loadData();
+          } catch {
+            notify("O álbum foi salvo, mas a lista não pôde ser atualizada agora. A importação continua.", "error");
+          }
+        }
         if (batchResult.failures) setImportErrors((items) => [...items, ...(batchResult.errors?.length ? batchResult.errors : [{ url: batches[index][0], message: "Não foi possível importar este álbum." }])]);
         else pending.delete(batches[index][0]);
         setImportProgress((current) => ({ ...current, percent: Math.round(((index + 1) / batches.length) * 100), phase: index + 1 === batches.length ? 4 : 3, created: totals.created, duplicates: totals.duplicates, failures: totals.failures }));
