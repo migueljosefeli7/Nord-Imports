@@ -36,6 +36,7 @@ export type ProductDraft = {
   sought: boolean;
   price: string;
   show_price: boolean;
+  yupoo_album_url: string;
 };
 
 export const emptyProductDraft: ProductDraft = {
@@ -52,6 +53,7 @@ export const emptyProductDraft: ProductDraft = {
   sought: false,
   price: "",
   show_price: false,
+  yupoo_album_url: "",
 };
 
 export function slugify(value: string) {

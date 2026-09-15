@@ -343,6 +343,7 @@ export function AdminDashboard() {
       active: product.active,
       rare: product.rare,
       sought: product.sought,
+      yupoo_album_url: product.yupoo_album_url || "",
     });
     setFiles([]);
     setProductOpen(true);
@@ -385,6 +386,7 @@ export function AdminDashboard() {
           active: draft.active,
           rare: draft.rare,
           sought: draft.sought,
+          yupoo_album_url: draft.yupoo_album_url.trim() || null,
           updated_at: new Date().toISOString(),
         };
         const result = editingId
@@ -1478,7 +1480,21 @@ export function AdminDashboard() {
               />
               <small className="field-help">Use linhas em branco para separar parágrafos, “##” para subtítulos e “-” para listas. A formatação aparecerá pronta na página do produto.</small>
             </label>
-            {editingId && products.find((product) => product.id === editingId)?.yupoo_album_url ? <div className="admin-source-link"><span><b>ORIGEM DO PRODUTO</b><small>Visível somente no painel administrativo</small></span><a href={products.find((product) => product.id === editingId)!.yupoo_album_url!} target="_blank" rel="noreferrer">ABRIR ÁLBUM NO YUPOO <ExternalLink /></a></div> : null}
+            <label>
+              Link original do Yupoo
+              <div className="admin-source-input">
+                <input
+                  className="admin-input"
+                  type="url"
+                  inputMode="url"
+                  value={draft.yupoo_album_url}
+                  onChange={(event) => setDraft({ ...draft, yupoo_album_url: event.target.value })}
+                  placeholder="https://fornecedor.x.yupoo.com/albums/000000000"
+                />
+                {draft.yupoo_album_url && <a href={draft.yupoo_album_url} target="_blank" rel="noreferrer" aria-label="Abrir álbum original no Yupoo">ABRIR YUPOO <ExternalLink /></a>}
+              </div>
+              <small className="field-help">Origem principal deste produto. Este endereço aparece somente para administradores.</small>
+            </label>
             </section>
             <section className="editor-section">
               <div className="editor-section-heading"><span>02</span><div><h3>Comercial</h3><p>Controle interno e forma de exibição do valor.</p></div></div>
