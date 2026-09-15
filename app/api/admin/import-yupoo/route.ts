@@ -33,20 +33,23 @@ export async function POST(request: Request) {
       const found = new Map<string, { url: string; title: string; image: string | null }>();
       for (const value of submitted) {
         const source = safeYupooUrl(value);
-        const html = await fetchHtml(source);
         if (source.pathname.includes("/albums/")) {
-          found.set(source.href, { url: source.href, title: extractMeta(html, "og:title") || extractTitle(html), image: extractImageUrls(html)[0] || null });
+          const html = await fetchHtml(source);
+          found.set(albumIdentity(source.href), { url: source.href, title: extractMeta(html, "og:title") || extractTitle(html), image: extractImageUrls(html)[0] || null });
           continue;
         }
-        for (const card of extractAlbumCards(html, source)) found.set(card.url, card);
+        const firstPage = new URL(source);
+        firstPage.searchParams.set("page", "1");
+        const html = await fetchHtml(firstPage);
+        for (const card of extractAlbumCards(html, firstPage)) found.set(albumIdentity(card.url), card);
         const pageCount = extractPageCount(html);
         for (let page = 2; page <= Math.max(pageCount, 100) && found.size < MAX_COLLECTION_ALBUMS; page += 1) {
-          const pageUrl = new URL(source);
+          const pageUrl = new URL(firstPage);
           pageUrl.searchParams.set("page", String(page));
           let pageHtml = "";
           try { pageHtml = await fetchHtml(pageUrl); } catch { break; }
           const previousSize = found.size;
-          for (const card of extractAlbumCards(pageHtml, pageUrl)) found.set(card.url, card);
+          for (const card of extractAlbumCards(pageHtml, pageUrl)) found.set(albumIdentity(card.url), card);
           if (found.size === previousSize) break;
         }
       }
@@ -86,11 +89,13 @@ export async function POST(request: Request) {
 
     for (const albumUrl of albumUrls) {
       try {
-        const existing = await supabase.from("products").select("id").eq("yupoo_album_url", albumUrl).maybeSingle();
+        const albumId = albumUrl.match(/\/albums\/(\d+)/)?.[1] || Date.now().toString();
+        const existing = albumId
+          ? await supabase.from("products").select("id").like("yupoo_album_url", `%/albums/${albumId}%`).limit(1).maybeSingle()
+          : await supabase.from("products").select("id").eq("yupoo_album_url", albumUrl).maybeSingle();
         if (existing.data) { duplicates += 1; continue; }
         const html = albumHtml.get(albumUrl) || await fetchHtml(new URL(albumUrl));
         const title = extractMeta(html, "og:title") || extractTitle(html) || `Produto Yupoo ${albumUrl.split("/").filter(Boolean).pop()}`;
-        const albumId = albumUrl.match(/\/albums\/(\d+)/)?.[1] || Date.now().toString();
         const product = await supabase.from("products").insert({ name: title, slug: `${slugify(title).slice(0, 70)}-${albumId}`, description: "Produto importado do Yupoo. Revise o nome, a descrição e publique quando estiver pronto.", brand_id: body.brand_id, categoria_id: body.categoria_id, subcategoria_id: body.subcategoria_id, yupoo_album_url: albumUrl, active: false }).select("id").single();
         if (product.error) throw product.error;
         const imageUrls = extractImageUrls(html);
@@ -200,9 +205,10 @@ function extractMeta(html: string, property: string) {
 function extractTitle(html: string) { return decodeHtml(html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || "").trim(); }
 function decodeHtml(value: string) { return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">"); }
 function extractAlbumUrls(html: string, base: URL) {
-  const urls = [...html.matchAll(/href=["']([^"']*\/albums\/\d+[^"']*)["']/gi)].map((match) => new URL(decodeHtml(match[1]), base).href.split("?")[0]);
+  const urls = [...html.matchAll(/href=["']([^"']*\/albums\/\d+[^"']*)["']/gi)].map((match) => new URL(decodeHtml(match[1]), base).href);
   return [...new Set(urls.filter((value) => { try { return safeYupooUrl(value).href; } catch { return false; } }))];
 }
+function albumIdentity(value: string) { return value.match(/\/albums\/(\d+)/)?.[1] || value; }
 function extractPageCount(html: string) {
   const values = [
     ...html.matchAll(/(?:[?&]page=|["']?(?:pageCount|totalPage|page_count|total_page|pages)["']?\s*[:=]\s*["']?)(\d+)/gi),
@@ -217,7 +223,7 @@ function extractAlbumCards(html: string, base: URL) {
     const href = match[1].match(/href=["']([^"']+)/i)?.[1];
     if (!href) continue;
     let url: URL;
-    try { url = safeYupooUrl(new URL(decodeHtml(href), base).href.split("?")[0]); } catch { continue; }
+    try { url = safeYupooUrl(new URL(decodeHtml(href), base).href); } catch { continue; }
     const block = `${match[1]} ${match[2]}`;
     const rawImage = block.match(/(?:data-origin-src|data-src|src)=["']([^"']+)/i)?.[1] || block.match(/background-image\s*:\s*url\(["']?([^"')]+)/i)?.[1] || "";
     let image: string | null = null;
