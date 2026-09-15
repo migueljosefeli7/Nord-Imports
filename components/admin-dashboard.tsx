@@ -148,6 +148,7 @@ export function AdminDashboard() {
     subcategoria_id: "",
   });
   const [importStatus, setImportStatus] = useState("");
+  const [importErrors, setImportErrors] = useState<{ url: string; message: string }[]>([]);
   const [importAlbums, setImportAlbums] = useState<ImportAlbum[]>([]);
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [importProgress, setImportProgress] = useState({
@@ -721,27 +722,17 @@ export function AdminDashboard() {
     }
     setBusy(true);
     setImportStatus("Validando os links e acessando os álbuns…");
-    setImportProgress({ state: "running", percent: 6, phase: 0, elapsed: 0, total: urls.length, created: 0, duplicates: 0, failures: 0 });
+    setImportErrors([]);
+    const pending = new Set(urls);
+    setImportProgress({ state: "running", percent: 0, phase: 0, elapsed: 0, total: urls.length, created: 0, duplicates: 0, failures: 0 });
     const progressTimer = window.setInterval(() => {
       setImportProgress((current) => {
         if (current.state !== "running") return current;
         const elapsed = current.elapsed + 1;
-        const percent = Math.min(92, current.percent + (current.percent < 45 ? 4 : current.percent < 75 ? 2 : 1));
-        const phase = percent >= 76 ? 3 : percent >= 50 ? 2 : percent >= 24 ? 1 : 0;
-        const messages = [
-          "Validando os links e acessando os álbuns…",
-          "Lendo títulos, fotos e vídeos disponíveis…",
-          "Filtrando duplicadas e arquivos de baixa qualidade…",
-          "Salvando os produtos e a mídia na Nord…",
-        ];
-        setImportStatus(messages[phase]);
-        return { ...current, elapsed, percent, phase };
+        return { ...current, elapsed };
       });
     }, 1000);
     try {
-      const {
-        data: { session },
-      } = await supabaseBrowser().auth.getSession();
       const totals = { created: 0, duplicates: 0, failures: 0, total: 0 };
       // Um álbum por requisição impede que uma peça com muitas mídias derrube o lote inteiro na Vercel.
       const batches = urls.map((url) => [url]);
@@ -751,6 +742,7 @@ export function AdminDashboard() {
         let responseText = "";
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
+            const { data: { session } } = await supabaseBrowser().auth.getSession();
             response = await fetch("/api/admin/import-yupoo", {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
@@ -767,14 +759,16 @@ export function AdminDashboard() {
           await new Promise((resolve) => window.setTimeout(resolve, 900));
         }
         if (!response) {
+          setImportErrors((items) => [...items, { url: batches[index][0], message: "Conexão interrompida. Confira o produto antes de tentar novamente." }]);
           totals.failures += 1;
           totals.total += 1;
           setImportProgress((current) => ({ ...current, percent: Math.round(((index + 1) / batches.length) * 100), phase: 3, created: totals.created, duplicates: totals.duplicates, failures: totals.failures }));
           continue;
         }
-        let batchResult: { created?: number; duplicates?: number; failures?: number; total?: number; error?: string } = {};
+        let batchResult: { created?: number; duplicates?: number; failures?: number; total?: number; error?: string; errors?: { url: string; message: string }[] } = {};
         try { batchResult = responseText ? JSON.parse(responseText) : {}; } catch { batchResult = {}; }
-        if (!response.ok) {
+        if (!response.ok || !Number.isInteger(batchResult.created) || !Number.isInteger(batchResult.failures)) {
+          setImportErrors((items) => [...items, { url: batches[index][0], message: batchResult.error || `Resposta inválida do servidor (HTTP ${response.status}).` }]);
           if (response.status === 401 || response.status === 403) throw new Error(batchResult.error || "Sua sessão expirou. Entre novamente no painel.");
           totals.failures += 1;
           totals.total += 1;
@@ -785,6 +779,8 @@ export function AdminDashboard() {
         totals.duplicates += batchResult.duplicates || 0;
         totals.failures += batchResult.failures || 0;
         totals.total += batchResult.total || batches[index].length;
+        if (batchResult.failures) setImportErrors((items) => [...items, ...(batchResult.errors?.length ? batchResult.errors : [{ url: batches[index][0], message: "Não foi possível importar este álbum." }])]);
+        else pending.delete(batches[index][0]);
         setImportProgress((current) => ({ ...current, percent: Math.round(((index + 1) / batches.length) * 100), phase: index + 1 === batches.length ? 4 : 3, created: totals.created, duplicates: totals.duplicates, failures: totals.failures }));
       }
       const result = totals;
@@ -792,10 +788,8 @@ export function AdminDashboard() {
         `${result.created} novos · ${result.duplicates} existentes · ${result.failures} falhas`,
       );
       setImportProgress((current) => ({ ...current, state: "done", percent: 100, phase: 4, total: result.total, created: result.created, duplicates: result.duplicates, failures: result.failures }));
-      setImportForm((current) => ({ ...current, urls: "" }));
-      setImportAlbums([]);
       await loadData();
-      notify("Importação concluída.");
+      notify(result.failures ? "Importação terminou com pendências. Os links foram mantidos para nova tentativa." : "Importação concluída.", result.failures ? "error" : "success");
     } catch (error) {
       setImportStatus(error instanceof Error ? error.message : "Falha na importação.");
       setImportProgress((current) => ({ ...current, state: "error" }));
@@ -804,6 +798,8 @@ export function AdminDashboard() {
         "error",
       );
     } finally {
+      setImportForm((current) => ({ ...current, urls: [...pending].join("\n") }));
+      setImportAlbums([]);
       window.clearInterval(progressTimer);
       setBusy(false);
     }
@@ -1190,6 +1186,7 @@ export function AdminDashboard() {
               <RefreshCw className={busy ? "spin" : ""} /> INICIAR IMPORTAÇÃO
             </button>
             <div className={`import-progress ${importProgress.state}`} aria-live="polite">
+              {importErrors.length > 0 && <details open><summary>{importErrors.length} álbum(ns) com pendências — confira os motivos</summary><ul>{importErrors.map((item, index) => <li key={`${item.url}-${index}`}><a href={item.url} target="_blank" rel="noreferrer">Abrir álbum {index + 1}</a>: {item.message}</li>)}</ul><p>Os links pendentes permanecem no campo acima para tentar novamente.</p></details>}
               <header>
                 <span className="import-progress-icon">
                   {importProgress.state === "done" ? <CheckCircle2 /> : importProgress.state === "error" ? <X /> : <RefreshCw className={importProgress.state === "running" ? "spin" : ""} />}

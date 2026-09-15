@@ -47,7 +47,7 @@ export async function POST(request: Request) {
           const pageUrl = new URL(firstPage);
           pageUrl.searchParams.set("page", String(page));
           let pageHtml = "";
-          try { pageHtml = await fetchHtml(pageUrl); } catch { break; }
+          try { pageHtml = await fetchHtml(pageUrl); } catch { throw new Error(`Não foi possível ler a página ${page}. A seleção está incompleta; tente carregar novamente.`); }
           const previousSize = found.size;
           for (const card of extractAlbumCards(pageHtml, pageUrl)) found.set(albumIdentity(card.url), card);
           if (found.size === previousSize) break;
@@ -86,17 +86,23 @@ export async function POST(request: Request) {
     const job = await supabase.from("import_jobs").insert({ user_id: user.id, source_url: albumUrls[0], status: "running", phase: "importando lote", total }).select("id").single();
     const jobId = job.data?.id as string | undefined;
     let created = 0; let duplicates = 0; let failures = sourceFailures;
+    const errors: { url: string; message: string }[] = [];
 
     for (const albumUrl of albumUrls) {
       try {
         const albumId = albumUrl.match(/\/albums\/(\d+)/)?.[1] || Date.now().toString();
         const existing = albumId
-          ? await supabase.from("products").select("id").like("yupoo_album_url", `%/albums/${albumId}%`).limit(1).maybeSingle()
+          ? await supabase.from("products").select("id").or(`yupoo_album_url.eq.${new URL(albumUrl).origin}/albums/${albumId},yupoo_album_url.like.${new URL(albumUrl).origin}/albums/${albumId}?%`).limit(1).maybeSingle()
           : await supabase.from("products").select("id").eq("yupoo_album_url", albumUrl).maybeSingle();
-        if (existing.data) { duplicates += 1; continue; }
+        if (existing.error) throw existing.error;
+        if (existing.data) {
+          const media = await supabase.from("product_images").select("id").eq("product_id", existing.data.id).limit(1);
+          if (media.error) throw media.error;
+          if (media.data?.length) { duplicates += 1; continue; }
+        }
         const html = albumHtml.get(albumUrl) || await fetchHtml(new URL(albumUrl));
         const title = extractMeta(html, "og:title") || extractTitle(html) || `Produto Yupoo ${albumUrl.split("/").filter(Boolean).pop()}`;
-        const product = await supabase.from("products").insert({ name: title, slug: `${slugify(title).slice(0, 70)}-${albumId}`, description: "Produto importado do Yupoo. Revise o nome, a descrição e publique quando estiver pronto.", brand_id: body.brand_id, categoria_id: body.categoria_id, subcategoria_id: body.subcategoria_id, yupoo_album_url: albumUrl, active: false }).select("id").single();
+        const product = existing.data ? { data: existing.data, error: null } : await supabase.from("products").insert({ name: title, slug: `${slugify(title).slice(0, 70)}-${albumId}`, description: "Produto importado do Yupoo. Revise o nome, a descrição e publique quando estiver pronto.", brand_id: body.brand_id, categoria_id: body.categoria_id, subcategoria_id: body.subcategoria_id, yupoo_album_url: albumUrl, active: false }).select("id").single();
         if (product.error) throw product.error;
         const imageUrls = extractImageUrls(html);
         const videoUrls = extractVideoUrls(html);
@@ -162,15 +168,15 @@ export async function POST(request: Request) {
           } catch { /* One unavailable video must not abort the album. */ }
         }
         if (!savedImages) {
-          await supabase.from("products").delete().eq("id", product.data.id);
+          if (!existing.data) await supabase.from("products").delete().eq("id", product.data.id);
           throw new Error("O álbum não possui fotos em alta resolução.");
         }
         created += 1;
-      } catch { failures += 1; }
+      } catch (error) { failures += 1; errors.push({ url: albumUrl, message: error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String(error.message) : "Falha ao salvar o álbum." }); }
       if (jobId) await supabase.from("import_jobs").update({ created, duplicates, failures }).eq("id", jobId);
     }
     if (jobId) await supabase.from("import_jobs").update({ status: failures === total ? "failed" : "done", phase: "concluído", created, duplicates, failures }).eq("id", jobId);
-    return NextResponse.json({ created, duplicates, failures, total });
+    return NextResponse.json({ created, duplicates, failures, total, errors });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível importar." }, { status: 400 });
   }
