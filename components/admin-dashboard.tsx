@@ -743,16 +743,44 @@ export function AdminDashboard() {
         data: { session },
       } = await supabaseBrowser().auth.getSession();
       const totals = { created: 0, duplicates: 0, failures: 0, total: 0 };
-      const batches = Array.from({ length: Math.ceil(urls.length / 30) }, (_, index) => urls.slice(index * 30, index * 30 + 30));
+      // Um álbum por requisição impede que uma peça com muitas mídias derrube o lote inteiro na Vercel.
+      const batches = urls.map((url) => [url]);
       for (let index = 0; index < batches.length; index += 1) {
-        setImportStatus(batches.length > 1 ? `Importando lote ${index + 1} de ${batches.length} · ${batches[index].length} álbuns…` : "Importando fotos e vídeos selecionados…");
-        const response = await fetch("/api/admin/import-yupoo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
-          body: JSON.stringify({ ...importForm, urls: batches[index] }),
-        });
-        const batchResult = await response.json();
-        if (!response.ok) throw new Error(batchResult.error || `Falha no lote ${index + 1}.`);
+        setImportStatus(`Importando álbum ${index + 1} de ${batches.length}…`);
+        let response: Response | null = null;
+        let responseText = "";
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            response = await fetch("/api/admin/import-yupoo", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+              body: JSON.stringify({ ...importForm, urls: batches[index] }),
+            });
+            responseText = await response.text();
+            if (response.ok || response.status < 500 || attempt === 1) break;
+          } catch {
+            response = null;
+            responseText = "";
+            if (attempt === 1) break;
+          }
+          setImportStatus(`O álbum ${index + 1} demorou mais que o esperado. Tentando novamente…`);
+          await new Promise((resolve) => window.setTimeout(resolve, 900));
+        }
+        if (!response) {
+          totals.failures += 1;
+          totals.total += 1;
+          setImportProgress((current) => ({ ...current, percent: Math.round(((index + 1) / batches.length) * 100), phase: 3, created: totals.created, duplicates: totals.duplicates, failures: totals.failures }));
+          continue;
+        }
+        let batchResult: { created?: number; duplicates?: number; failures?: number; total?: number; error?: string } = {};
+        try { batchResult = responseText ? JSON.parse(responseText) : {}; } catch { batchResult = {}; }
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) throw new Error(batchResult.error || "Sua sessão expirou. Entre novamente no painel.");
+          totals.failures += 1;
+          totals.total += 1;
+          setImportProgress((current) => ({ ...current, percent: Math.round(((index + 1) / batches.length) * 100), phase: 3, created: totals.created, duplicates: totals.duplicates, failures: totals.failures }));
+          continue;
+        }
         totals.created += batchResult.created || 0;
         totals.duplicates += batchResult.duplicates || 0;
         totals.failures += batchResult.failures || 0;
