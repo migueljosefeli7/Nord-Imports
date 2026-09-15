@@ -65,6 +65,16 @@ type DeleteTarget =
   | { kind: "brand" | "category" | "subcategory"; id: string; label: string }
   | null;
 
+function isYupooListingLink(value: string) {
+  try {
+    const url = new URL(value);
+    const isYupoo = url.hostname === "yupoo.com" || url.hostname.endsWith(".yupoo.com");
+    return isYupoo && !/\/albums\/\d+/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 async function squareImageFile(file: File) {
   if (!file.type.startsWith("image/")) return file;
   try {
@@ -278,6 +288,8 @@ export function AdminDashboard() {
   const importSubcategories = subcategories.filter(
     (item) => item.category_id === importForm.categoria_id,
   );
+  const importLinks = importForm.urls.split(/\s+/).map((url) => url.trim()).filter(Boolean);
+  const hasYupooListing = importLinks.some(isYupooListingLink);
   const allSelected =
     products.length > 0 && selected.length === products.length;
   const nav = [
@@ -693,8 +705,8 @@ export function AdminDashboard() {
   async function runImport(event: React.FormEvent) {
     event.preventDefault();
     const typedUrls = importForm.urls.split(/\s+/).map((url) => url.trim()).filter(Boolean);
-    if (typedUrls.some((url) => /\/collections?(\/|$)/i.test(url)) && !importAlbums.length) {
-      notify("Primeiro carregue a collection e escolha os álbuns.", "error");
+    if (typedUrls.some(isYupooListingLink) && !importAlbums.length) {
+      notify("Primeiro carregue a página do Yupoo e escolha os álbuns.", "error");
       return;
     }
     const urls = importAlbums.length ? importAlbums.filter((album) => album.selected).map((album) => album.url) : typedUrls;
@@ -1059,11 +1071,14 @@ export function AdminDashboard() {
               />
               <small>{importForm.urls.split(/\s+/).filter(Boolean).length} link(s) informado(s) · collections completas são divididas automaticamente em lotes seguros</small>
             </label>
-            {/\/collections?(\/|$)/i.test(importForm.urls) && !importAlbums.length && (
+            {hasYupooListing && !importAlbums.length && <section className="collection-callout">
+              <span><Layers /></span>
+              <div><b>PÁGINA COM VÁRIOS ÁLBUNS DETECTADA</b><p>Carregue a lista para visualizar as capas, nomes e escolher exatamente quais produtos importar.</p></div>
               <button className="button collection-preview-button" type="button" onClick={previewCollection} disabled={collectionLoading || busy}>
-                {collectionLoading ? <LoaderCircle className="spin" /> : <Layers />} {collectionLoading ? "LENDO COLLECTION…" : "CARREGAR ÁLBUNS DA COLLECTION"}
+                {collectionLoading ? <LoaderCircle className="spin" /> : <ImagePlus />} {collectionLoading ? "BUSCANDO TODOS OS ÁLBUNS…" : "CARREGAR E ESCOLHER ÁLBUNS"}
               </button>
-            )}
+            </section>}
+            {!hasYupooListing && importLinks.length > 0 && !importAlbums.length && <p className="direct-album-note"><CheckCircle2 /> {importLinks.length} álbum(ns) individual(is) pronto(s). Para escolher produtos de uma categoria ou collection, cole o link da página completa do Yupoo.</p>}
             {importAlbums.length > 0 && <section className="collection-picker">
               <header><div><small>SELEÇÃO DA COLLECTION</small><h3>Escolha os álbuns</h3><p>{importAlbums.filter((album) => album.selected).length} de {importAlbums.length} selecionados</p></div><div><button type="button" onClick={() => setImportAlbums((items) => items.map((item) => ({ ...item, selected: true })))}>MARCAR TODOS</button><button type="button" onClick={() => setImportAlbums((items) => items.map((item) => ({ ...item, selected: false })))}>LIMPAR</button></div></header>
               <div className="collection-album-grid">
