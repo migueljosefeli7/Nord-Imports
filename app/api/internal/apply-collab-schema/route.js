@@ -27,10 +27,18 @@ export async function POST(request) {
     return Response.json({ error: "Conexão PostgreSQL indisponível." }, { status: 500 });
   }
 
-  const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
-  await client.connect();
+  const databaseUrl = new URL(connectionString);
+  databaseUrl.searchParams.delete("sslmode");
+  databaseUrl.searchParams.delete("sslrootcert");
+  databaseUrl.searchParams.delete("sslcert");
+  databaseUrl.searchParams.delete("sslkey");
+  const client = new Client({
+    connectionString: databaseUrl.toString(),
+    ssl: { rejectUnauthorized: false },
+  });
 
   try {
+    await client.connect();
     await client.query("begin");
     await client.query(`
       create table if not exists public.product_brands (
