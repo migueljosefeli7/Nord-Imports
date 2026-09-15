@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseBrowserConfig } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/admin-types";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import sharp from "sharp";
 
 export const runtime = "nodejs";
@@ -40,14 +40,20 @@ export async function POST(request: Request) {
         }
         for (const card of extractAlbumCards(html, source)) found.set(card.url, card);
         const pageCount = extractPageCount(html);
-        for (let page = 2; page <= pageCount && found.size < MAX_COLLECTION_ALBUMS; page += 1) {
+        for (let page = 2; page <= Math.max(pageCount, 100) && found.size < MAX_COLLECTION_ALBUMS; page += 1) {
           const pageUrl = new URL(source);
           pageUrl.searchParams.set("page", String(page));
-          const pageHtml = await fetchHtml(pageUrl);
+          let pageHtml = "";
+          try { pageHtml = await fetchHtml(pageUrl); } catch { break; }
+          const previousSize = found.size;
           for (const card of extractAlbumCards(pageHtml, pageUrl)) found.set(card.url, card);
+          if (found.size === previousSize) break;
         }
       }
-      const albums = [...found.values()].slice(0, MAX_COLLECTION_ALBUMS);
+      const albums = [...found.values()].slice(0, MAX_COLLECTION_ALBUMS).map((album) => ({
+        ...album,
+        image: album.image ? signedThumbnailUrl(album.image, album.url) : null,
+      }));
       return NextResponse.json({ albums, total: albums.length });
     }
 
@@ -173,6 +179,14 @@ function safeYupooUrl(value: string) {
   return url;
 }
 
+function signedThumbnailUrl(imageUrl: string, referer: string) {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.STORAGE_SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) return imageUrl;
+  const payload = `${imageUrl}\n${referer}`;
+  const signature = createHmac("sha256", secret).update(payload).digest("hex");
+  return `/api/admin/yupoo-thumbnail?url=${encodeURIComponent(imageUrl)}&referer=${encodeURIComponent(referer)}&signature=${signature}`;
+}
+
 async function fetchHtml(url: URL) {
   const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; NordImports/1.0)", Accept: "text/html" }, signal: AbortSignal.timeout(20000), cache: "no-store" });
   if (!response.ok) throw new Error(`O Yupoo respondeu com o status ${response.status}.`);
@@ -190,7 +204,10 @@ function extractAlbumUrls(html: string, base: URL) {
   return [...new Set(urls.filter((value) => { try { return safeYupooUrl(value).href; } catch { return false; } }))];
 }
 function extractPageCount(html: string) {
-  const values = [...html.matchAll(/(?:[?&]page=|["'](?:pageCount|totalPage)["']\s*:\s*)(\d+)/gi)].map((match) => Number(match[1]));
+  const values = [
+    ...html.matchAll(/(?:[?&]page=|["']?(?:pageCount|totalPage|page_count|total_page|pages)["']?\s*[:=]\s*["']?)(\d+)/gi),
+    ...html.matchAll(/\b\d+\s*\/\s*(\d+)\b/g),
+  ].map((match) => Number(match[1]));
   return Math.min(100, Math.max(1, ...values.filter(Number.isFinite)));
 }
 function extractAlbumCards(html: string, base: URL) {
