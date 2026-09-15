@@ -18,9 +18,11 @@ export async function POST(request: Request) {
   if (!token) return NextResponse.json({ error: "Sessão administrativa inválida." }, { status: 401 });
 
   const supabase = createClient(url, key, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
-  const { data: { user } } = await supabase.auth.getUser(token);
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  if (authError && (!authError.status || authError.status >= 500 || authError.status === 429)) return NextResponse.json({ error: "A validação da sessão está temporariamente indisponível. Tente novamente." }, { status: 503 });
   if (!user) return NextResponse.json({ error: "Faça login novamente." }, { status: 401 });
-  const { data: isAdmin } = await supabase.rpc("has_role", { requested_role: "admin" });
+  const { data: isAdmin, error: roleError } = await supabase.rpc("has_role", { requested_role: "admin" });
+  if (roleError) return NextResponse.json({ error: "Não foi possível verificar sua permissão agora. Tente novamente." }, { status: 503 });
   if (!isAdmin) return NextResponse.json({ error: "Apenas administradores podem importar." }, { status: 403 });
 
   try {

@@ -58,6 +58,26 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabase";
 import { isVideoUrl } from "@/lib/media";
 
 type Notice = { tone: "success" | "error"; text: string } | null;
+
+async function fetchYupooImport(body: object) {
+  const auth = supabaseBrowser().auth;
+  let { data: { session } } = await auth.getSession();
+  if (session?.expires_at && session.expires_at * 1000 < Date.now() + 60_000) {
+    const refreshed = await auth.refreshSession();
+    session = refreshed.data.session;
+  }
+  if (!session) return new Response(JSON.stringify({ error: "Sua sessão terminou. Entre novamente; os links pendentes foram preservados." }), { status: 401 });
+  const send = (token: string) => fetch("/api/admin/import-yupoo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const response = await send(session.access_token);
+  if (response.status !== 401) return response;
+  const refreshed = await auth.refreshSession();
+  if (refreshed.error || !refreshed.data.session) return response;
+  return send(refreshed.data.session.access_token);
+}
 type ImportAlbum = { url: string; title: string; image: string | null; selected: boolean };
 type TaxonomyEdit = { kind: "category" | "subcategory"; id: string; name: string } | null;
 type DeleteTarget =
@@ -742,12 +762,7 @@ export function AdminDashboard() {
         let responseText = "";
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
-            const { data: { session } } = await supabaseBrowser().auth.getSession();
-            response = await fetch("/api/admin/import-yupoo", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
-              body: JSON.stringify({ ...importForm, urls: batches[index] }),
-            });
+            response = await fetchYupooImport({ ...importForm, urls: batches[index] });
             responseText = await response.text();
             if (response.ok || response.status < 500 || attempt === 1) break;
           } catch {
@@ -811,8 +826,7 @@ export function AdminDashboard() {
     setCollectionLoading(true);
     setImportStatus("Lendo a collection e buscando os álbuns…");
     try {
-      const { data: { session } } = await supabaseBrowser().auth.getSession();
-      const response = await fetch("/api/admin/import-yupoo", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` }, body: JSON.stringify({ urls, preview: true }) });
+      const response = await fetchYupooImport({ urls, preview: true });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Não foi possível ler a collection.");
       setImportAlbums((result.albums || []).map((album: Omit<ImportAlbum, "selected">) => ({ ...album, selected: true })));
