@@ -116,3 +116,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   object-fit:contain!important;
   object-position:center!important;
 }
+
+.product-editor-footer .danger-action{margin-right:auto;color:#a51414;background:#fff;border-color:#ce8c8c}
+.product-editor-footer .danger-action:hover:not(:disabled){background:#fff1f1;border-color:#a51414}
+@media(max-width:760px){.product-editor-footer .danger-action{grid-column:1 / -1;width:100%;margin-right:0}}

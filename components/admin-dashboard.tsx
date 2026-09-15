@@ -590,7 +590,7 @@ export function AdminDashboard() {
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return;
+    if (!deleteTarget || busy) return;
     await perform(async () => {
       const supabase = supabaseBrowser();
       if (deleteTarget.kind === "products") {
@@ -606,6 +606,11 @@ export function AdminDashboard() {
           .delete()
           .in("id", deleteTarget.ids);
         if (result.error) throw result.error;
+        if (editingId && deleteTarget.ids.includes(editingId)) {
+          setProductOpen(false);
+          setEditingId(null);
+          setFiles([]);
+        }
         if (related.length)
           await supabase.storage.from("products").remove(related);
         setSelected([]);
@@ -1790,6 +1795,18 @@ export function AdminDashboard() {
             </div>
           </form>
           <DialogFooter className="product-editor-footer">
+            {editingId && (
+              <button
+                className="button danger-action"
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  setDeleteTarget({ kind: "products", ids: [editingId] })
+                }
+              >
+                <Trash2 aria-hidden="true" /> EXCLUIR PRODUTO
+              </button>
+            )}
             <button
               className="button"
               type="button"
@@ -1906,14 +1923,23 @@ export function AdminDashboard() {
             <AlertDialogTitle>Confirmar exclusão?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.kind === "products"
-                ? `Você excluirá ${deleteTarget.ids.length} produto(s), incluindo suas imagens.`
+                ? deleteTarget.ids.length === 1
+                  ? `Você excluirá “${products.find((product) => product.id === deleteTarget.ids[0])?.name || "este produto"}”, incluindo suas imagens. Essa ação não pode ser desfeita.`
+                  : `Você excluirá ${deleteTarget.ids.length} produto(s), incluindo suas imagens. Essa ação não pode ser desfeita.`
                 : `Você excluirá “${deleteTarget?.label}”. Estruturas que ainda possuem produtos vinculados não podem ser apagadas.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={confirmDelete}>
-              Excluir definitivamente
+            <AlertDialogAction
+              variant="destructive"
+              disabled={busy}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {busy ? "Excluindo..." : "Excluir definitivamente"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
