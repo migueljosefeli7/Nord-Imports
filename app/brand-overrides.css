@@ -89,9 +89,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:768px){.gallery-main:not(.is-video){cursor:zoom-in}.gallery-main:not(.is-video)::after{content:"TOQUE PARA AMPLIAR";position:absolute;left:12px;bottom:12px;background:#fff;color:var(--ink);padding:7px 9px;font-size:.55rem;font-weight:900;letter-spacing:.08em;pointer-events:none}.gallery-main:not(.is-video) .gallery-counter{bottom:12px}}
 
 /* Navegação enxuta: o cabeçalho expõe somente os quatro destinos principais. */
-.nav-wrap{grid-template-columns:170px 1fr 170px}
-.nav-actions{display:none}
-@media(max-width:1024px){.nav-wrap{grid-template-columns:44px 1fr 44px}}
+.nav-wrap{grid-template-columns:170px 1fr auto}
+.nav-actions{display:flex}
+.nav-actions .wa-small{display:none}
+@media(max-width:1024px){.nav-wrap{position:relative;grid-template-columns:auto 1fr auto}.nav-wrap>a[aria-label="Nord Imports — início"]{position:absolute;left:50%;translate:-50% 0}.nav-actions{gap:2px}}
 
 /* Contrato final das capas públicas: sempre 1:1 e nunca recortadas. */
 .products-grid .product-image,
